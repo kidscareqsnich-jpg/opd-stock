@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>พัสดุ OPD</title>
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+  :root { --bg:#f4f6f8; --card:#fff; --ink:#1d2733; --muted:#6b7785; --line:#dde3e9;
+          --pri:#1f3864; --ok:#1e7d4f; --warn:#b45309; --bad:#b42318;
+          --open:#e6f4ea; --ask:#fde9d1; --life:#f8d7d7; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.45 Tahoma, "Sarabun", sans-serif; }
+  header { position:sticky; top:0; z-index:5; background:var(--pri); color:#fff; padding:10px 16px;
+           display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  header span { font-size:13px; opacity:.85; text-align:right; }
+  main { padding:12px 16px 80px; max-width:640px; margin:0 auto; }
+  h2 { margin:4px 0 8px; font-size:20px; }
+  h3 { margin:16px 0 6px; font-size:16px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:12px; }
+  .muted { color:var(--muted); } .sm { font-size:13px; } .bad { color:var(--bad); } .ok { color:var(--ok); }
+  .big { font-size:20px; font-weight:bold; margin:10px 0; }
+  input, select, textarea { width:100%; font:inherit; padding:10px 12px; border:1px solid var(--line);
+           border-radius:10px; background:#fff; margin:6px 0; }
+  label { display:block; font-size:14px; color:var(--muted); margin-top:8px; }
+  button { font:inherit; border:1px solid var(--line); background:#fff; color:var(--ink); border-radius:10px;
+           padding:10px 14px; cursor:pointer; }
+  button:disabled { opacity:.5; }
+  button.primary { background:var(--pri); border-color:var(--pri); color:#fff; font-weight:bold; }
+  button.okb { background:var(--ok); border-color:var(--ok); color:#fff; }
+  button.badb { color:var(--bad); border-color:var(--bad); }
+  button.link { border:none; background:none; color:var(--pri); padding:6px 0; }
+  .menu { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px; }
+  .actions { display:grid; gap:8px; margin-top:12px; }
+  .stepper { display:flex; gap:8px; align-items:center; }
+  .stepper input { text-align:center; font-size:20px; }
+  .stepper button { width:52px; height:48px; font-size:22px; flex:none; }
+  .list { display:grid; gap:6px; }
+  .row { display:flex; justify-content:space-between; align-items:center; gap:10px; text-align:left; width:100%;
+         background:#fff; border:1px solid var(--line); border-radius:10px; padding:10px 12px; }
+  .row .right { text-align:right; flex:none; }
+  .nm { font-weight:bold; }
+  .qty { font-size:14px; margin-top:4px; }
+  .badge { display:inline-block; font-size:12px; padding:2px 8px; border-radius:99px; }
+  .b-open { background:var(--open); } .b-ask { background:var(--ask); } .b-life { background:var(--life); }
+  .countrow { display:grid; grid-template-columns:1fr 90px 64px; gap:6px; align-items:center;
+              background:#fff; border:1px solid var(--line); border-radius:10px; padding:8px 10px; }
+  .countrow.done { background:#eef8f1; }
+  .countrow input { margin:0; text-align:center; }
+  .check { display:flex; align-items:center; gap:8px; margin:8px 0; color:var(--ink); font-size:15px; }
+  .check input { width:auto; margin:0; }
+  #toast { position:fixed; left:16px; right:16px; bottom:16px; z-index:10; background:var(--ink); color:#fff;
+           padding:12px 14px; border-radius:10px; opacity:0; transform:translateY(20px); transition:.2s;
+           pointer-events:none; text-align:center; }
+  #toast.show { opacity:1; transform:none; } #toast.bad { background:var(--bad); }
+</style>
+</head>
+<body>
+<header><b>พัสดุ OPD</b><span id="who"></span></header>
+<main id="app"><p class="muted">กำลังเปิดระบบ...</p></main>
+<div id="toast"></div>
+
+<script>
+// ===== แก้ 2 ค่านี้ตอนติดตั้ง =====
+const CONFIG = {
+  LIFF_ID: '2012074647-BmAlHwZ3',
+  API_URL: 'https://script.google.com/macros/s/AKfycbx8jDwnC2srH8r_7BqTh7m4cZM_3WWhI8HZGr-MtkNrV5VHNsVc09mksqlhnok9VpOq/exec'
+};
+// ==================================
+
+const S = { me: null, items: [], pending: 0, staff: [], units: [], idToken: '' };
+const $app = document.getElementById('app');
+const PARTNER_KEY = 'opd-count-partner';
+
+// ---------- ตัวช่วยหน้าจอ ----------
+function h(tag, props, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(props || {})) {
+    if (v === false || v == null) continue;
+    if (k === 'class') el.className = v;
+    else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+    else el.setAttribute(k, v === true ? '' : v);
+  }
+  kids.flat().forEach(c => {
+    if (c == null || c === false) return;
+    el.append(c.nodeType ? c : document.createTextNode(String(c)));
+  });
+  return el;
+}
+function render(...nodes) { $app.replaceChildren(...nodes.filter(Boolean)); window.scrollTo(0, 0); }
+function toast(msg, bad) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'show' + (bad ? ' bad' : '');
+  clearTimeout(toast.timer); toast.timer = setTimeout(() => { t.className = ''; }, 2800);
+}
+function fmtN(n) { return Number(n).toLocaleString('th-TH', { maximumFractionDigits: 2 }); }
+function badge(t) {
+  const cls = t === 'ต้องขอ' ? 'b-ask' : t === 'กู้ชีพ' ? 'b-life' : 'b-open';
+  return h('span', { class: 'badge ' + cls }, t);
+}
+function isKeeper() { return S.me && S.me.keeper; }
+function back(fn) { return h('button', { class: 'link', onclick: fn || showHome }, '‹ กลับ'); }
+function actionBtn(label, cls, fn) {
+  const b = h('button', { class: cls || '' }, label);
+  b.addEventListener('click', async () => {
+    b.disabled = true;
+    try { await fn(); } catch (e) { toast(e.message, true); } finally { b.disabled = false; }
+  });
+  return b;
+}
+function stepper(start) {
+  const input = h('input', { type: 'number', inputmode: 'decimal', min: '0', step: 'any', value: start == null ? '1' : String(start) });
+  const minus = h('button', { type: 'button', onclick: () => { input.value = Math.max(1, (Number(input.value) || 1) - 1); } }, '−');
+  const plus = h('button', { type: 'button', onclick: () => { input.value = (Number(input.value) || 0) + 1; } }, '+');
+  return { el: h('div', { class: 'stepper' }, minus, input, plus), input };
+}
+function unitInput(placeholder) {
+  const id = 'units-' + Math.random().toString(36).slice(2);
+  const input = h('input', { type: 'text', list: id, placeholder });
+  const dl = h('datalist', { id }, S.units.map(u => h('option', { value: u })));
+  return { el: h('div', {}, input, dl), input };
+}
+
+// ---------- คุยกับหลังบ้าน ----------
+async function api(action, data) {
+  const res = await fetch(CONFIG.API_URL, {
+    method: 'POST',
+    body: JSON.stringify(Object.assign({ action, idToken: S.idToken }, data || {}))
+  });
+  const j = await res.json();
+  if (!j.ok) throw new Error(j.error);
+  return j.data;
+}
+function applyBase(d) {
+  S.me = d.me; S.items = d.items; S.pending = d.pending; S.staff = d.staffNames; S.units = d.units || [];
+  document.getElementById('who').textContent = S.me ? S.me.name + ' · ' + S.me.role : '';
+}
+function itemCodeFromUrl() { return new URLSearchParams(location.search).get('item'); }
+
+// ---------- เริ่มต้น ----------
+async function main() {
+  try {
+    await liff.init({ liffId: CONFIG.LIFF_ID });
+    if (!liff.isLoggedIn()) { liff.login({ redirectUri: location.href }); return; }
+    S.idToken = liff.getIDToken();
+    const d = await api('init');
+    if (!d.me) return showRegister(d);
+    applyBase(d);
+    const code = itemCodeFromUrl();
+    code ? showItem(code) : showHome();
+  } catch (e) {
+    render(h('div', { class: 'card' },
+      h('p', { class: 'bad' }, 'เปิดระบบไม่สำเร็จ: ' + e.message),
+      h('p', { class: 'muted' }, 'ลองปิดหน้านี้แล้วเปิดใหม่จากเมนูใน LINE')));
+  }
+}
+
+// ---------- ลงทะเบียน ----------
+function showRegister(d) {
+  const sel = h('select', {}, h('option', { value: '' }, '— เลือกชื่อของคุณ —'),
+    d.unclaimed.map(s => h('option', { value: s.row }, s.name)));
+  const code = h('input', { type: 'tel', placeholder: 'รหัสลงทะเบียน (ถามหัวหน้า)', maxlength: '12' });
+  render(h('div', { class: 'card' },
+    h('h2', {}, 'ลงทะเบียนครั้งแรก'),
+    h('p', { class: 'muted' }, 'บัญชี LINE: ' + (d.lineName || '-')),
+    h('p', { class: 'sm muted' }, 'ทำครั้งเดียว ครั้งต่อไประบบจะจำได้เอง'),
+    sel, code,
+    actionBtn('ลงทะเบียน', 'primary', async () => {
+      if (!sel.value) throw new Error('กรุณาเลือกชื่อ');
+      const r = await api('register', { row: sel.value, code: code.value });
+      applyBase(r); toast('ลงทะเบียนเรียบร้อย');
+      const c = itemCodeFromUrl(); c ? showItem(c) : showHome();
+    }),
+    d.unclaimed.length ? null : h('p', { class: 'bad' }, 'ไม่มีชื่อที่ว่าง กรุณาแจ้งแอดมินให้เพิ่มชื่อในแท็บบุคลากร')));
+}
+
+// ---------- หน้าแรก ----------
+function itemRow(i) {
+  return h('button', { class: 'row', onclick: () => showItem(i.code) },
+    h('div', {}, h('div', { class: 'nm' }, i.name), h('div', { class: 'sm muted' }, i.code)),
+    h('div', { class: 'right' }, badge(i.type),
+      h('div', { class: 'qty' }, i.qty == null ? 'ยังไม่นับ' : fmtN(i.qty) + ' ' + i.unit)));
+}
+function showHome() {
+  const q = h('input', { type: 'search', placeholder: 'ค้นหาชื่อหรือรหัสพัสดุ' });
+  const list = h('div', { class: 'list' });
+  const draw = () => {
+    const t = q.value.trim().toLowerCase();
+    const rows = S.items.filter(i => !t || i.name.toLowerCase().includes(t) || i.code.includes(t));
+    list.replaceChildren(...rows.slice(0, 80).map(itemRow));
+    if (!rows.length) list.append(h('p', { class: 'muted' }, 'ไม่พบรายการ'));
+  };
+  q.addEventListener('input', draw);
+  render(
+    h('div', { class: 'menu' },
+      h('button', { class: 'primary', onclick: scan }, 'สแกน QR'),
+      h('button', { onclick: showLoans }, 'ยืม-คืน'),
+      isKeeper() ? h('button', { onclick: showPending }, 'คำขอรออนุมัติ' + (S.pending ? ' (' + S.pending + ')' : '')) : null,
+      isKeeper() ? h('button', { onclick: showCount }, 'นับสต๊อก') : null),
+    q, list);
+  draw();
+}
+async function scan() {
+  try {
+    if (!liff.scanCodeV2) throw new Error('ใช้กล้องมือถือสแกนป้าย QR ได้เลย');
+    const r = await liff.scanCodeV2();
+    if (!r || !r.value) return;
+    let code = r.value;
+    try { code = new URL(r.value).searchParams.get('item') || r.value; } catch (_) {}
+    showItem(code.trim());
+  } catch (e) { toast(e.message, true); }
+}
+
+// ---------- หน้ารายการของ ----------
+function showItem(code) {
+  const i = S.items.find(x => x.code === code);
+  if (!i) { toast('ไม่พบรหัส ' + code, true); return showHome(); }
+  const st = stepper(1);
+  const note = h('input', { type: 'text', placeholder: 'หมายเหตุ (ถ้ามี)' });
+  const go = async (action, msg, extra) => {
+    const d = await api(action, Object.assign({ code: i.code, qty: st.input.value, note: note.value }, extra || {}));
+    applyBase(d); toast(msg); showItem(i.code);
+  };
+  const actions = h('div', { class: 'actions' });
+  if (i.type === 'หยิบได้เลย') actions.append(actionBtn('เบิก', 'primary', () => go('withdraw', 'บันทึกการเบิกแล้ว')));
+  if (i.type === 'กู้ชีพ') actions.append(actionBtn('บันทึกใช้จากรถฉุกเฉิน', 'primary', () => go('withdraw', 'บันทึกแล้ว')));
+  if (i.type === 'ต้องขอ') {
+    actions.append(actionBtn('ส่งคำขอ', 'primary', () => go('request', 'ส่งคำขอแล้ว รอผู้ดูแลอนุมัติ')));
+    if (isKeeper()) {
+      const label = S.me.role === 'หัวหน้า' ? 'จ่ายเอง (ใช้กุญแจสำรอง)' : 'จ่ายเลย';
+      actions.append(actionBtn(label, '', () => go('withdraw', 'บันทึกการจ่ายแล้ว')));
+    }
+  }
+  if (i.type === 'หยิบได้เลย' || (i.type === 'ต้องขอ' && isKeeper())) {
+    actions.append(h('button', { onclick: () => showLoanOut(i) }, 'ให้หน่วยงานอื่นยืม'));
+  }
+  if (isKeeper()) actions.append(h('button', { onclick: () => showReceive(i) }, 'รับของเข้าจากพัสดุ'));
+
+  render(back(),
+    h('div', { class: 'card' },
+      h('div', { class: 'sm muted' }, i.code + ' · ' + i.cat),
+      h('h2', {}, i.name), badge(i.type),
+      h('p', { class: 'big' }, 'คงเหลือ: ', i.qty == null ? 'ยังไม่นับยอดตั้งต้น' : fmtN(i.qty) + ' ' + i.unit),
+      i.type === 'ต้องขอ' && !isKeeper() ? h('p', { class: 'sm muted' }, 'ของชิ้นนี้ต้องให้ผู้ดูแลพัสดุอนุมัติก่อนรับของ') : null,
+      i.type === 'กู้ชีพ' ? h('p', { class: 'sm muted' }, 'ของกู้ชีพหยิบใช้ได้ทันที บันทึกหลังใช้ก็ได้') : null,
+      h('label', {}, 'จำนวน (' + i.unit + ')'), st.el, note, actions));
+}
+
+function showReceive(i) {
+  const st = stepper(1);
+  const emerg = h('input', { type: 'checkbox' });
+  render(back(() => showItem(i.code)),
+    h('div', { class: 'card' },
+      h('h2', {}, 'รับของเข้า'), h('p', {}, i.name),
+      h('label', {}, 'จำนวนที่รับ (' + i.unit + ')'), st.el,
+      h('label', { class: 'check' }, emerg, 'เป็นการเบิกฉุกเฉินจากพัสดุ'),
+      actionBtn('บันทึกรับเข้า', 'primary', async () => {
+        const d = await api('receive', { code: i.code, qty: st.input.value, emergency: emerg.checked });
+        applyBase(d); toast('บันทึกรับเข้าแล้ว'); showItem(i.code);
+      })));
+}
+
+// ---------- ยืม-คืน ----------
+function showLoanOut(i) {
+  const st = stepper(1);
+  const unit = unitInput('หน่วยงานที่มายืม');
+  const person = h('input', { type: 'text', placeholder: 'ชื่อคนมารับ' });
+  render(back(() => showItem(i.code)),
+    h('div', { class: 'card' },
+      h('h2', {}, 'ให้หน่วยงานอื่นยืม'), h('p', {}, i.name),
+      h('label', {}, 'จำนวน (' + i.unit + ')'), st.el,
+      h('label', {}, 'หน่วยงาน'), unit.el,
+      h('label', {}, 'ผู้มารับ'), person,
+      actionBtn('บันทึกให้ยืม', 'primary', async () => {
+        const d = await api('loanOut', { code: i.code, qty: st.input.value, unit: unit.input.value, person: person.value });
+        applyBase(d); toast('บันทึกแล้ว ระบบจะเตือนถ้าค้างเกินกำหนด'); showItem(i.code);
+      })));
+}
+
+function showLoanIn() {
+  const sel = h('select', {}, h('option', { value: '' }, 'อุปกรณ์หรือของที่ไม่มีรหัสในระบบ'),
+    S.items.map(i => h('option', { value: i.code }, i.name)));
+  const name = h('input', { type: 'text', placeholder: 'ชื่ออุปกรณ์หรือของ' });
+  sel.addEventListener('change', () => { name.style.display = sel.value ? 'none' : ''; });
+  const st = stepper(1);
+  const unit = unitInput('หน่วยงานที่ให้ยืม');
+  const person = h('input', { type: 'text', placeholder: 'ชื่อผู้ให้ยืม (ถ้ามี)' });
+  render(back(showLoans),
+    h('div', { class: 'card' },
+      h('h2', {}, 'ยืมของจากหน่วยงานอื่น'),
+      h('label', {}, 'ของที่ยืม'), sel, name,
+      h('label', {}, 'จำนวน'), st.el,
+      h('label', {}, 'หน่วยงาน'), unit.el,
+      h('label', {}, 'ผู้ให้ยืม'), person,
+      actionBtn('บันทึกการยืม', 'primary', async () => {
+        const d = await api('loanIn', { code: sel.value, name: name.value, qty: st.input.value, unit: unit.input.value, person: person.value });
+        applyBase(d); toast('บันทึกการยืมแล้ว'); showLoans();
+      })));
+}
+
+async function showLoans() {
+  render(back(), h('p', { class: 'muted' }, 'กำลังโหลด...'));
+  try {
+    const d = await api('loans');
+    applyBase(d.base);
+    const card = l => h('div', { class: 'card' },
+      h('div', { class: 'sm muted' }, l.dir + ' · ' + l.date + ' · ' + l.days + ' วัน'),
+      h('div', { class: 'nm' }, l.name + ' ' + fmtN(l.qty)),
+      h('div', {}, (l.dir === 'ให้ยืมออก' ? 'ให้ ' : 'ยืมจาก ') + l.unit + (l.person ? ' (' + l.person + ')' : '')),
+      l.days > d.limit ? h('div', { class: 'bad sm' }, 'ค้างเกินกำหนด ' + d.limit + ' วัน') : null,
+      h('div', { class: 'actions' }, actionBtn(l.dir === 'ให้ยืมออก' ? 'ได้ของคืนแล้ว' : 'คืนของแล้ว', 'okb', async () => {
+        const r = await api('loanReturn', { id: l.id });
+        applyBase(r.base); toast('บันทึกการคืนแล้ว'); showLoans();
+      })));
+    const out = d.list.filter(l => l.dir === 'ให้ยืมออก');
+    const inn = d.list.filter(l => l.dir !== 'ให้ยืมออก');
+    render(back(),
+      h('div', { class: 'actions' }, h('button', { class: 'primary', onclick: showLoanIn }, '+ ยืมของจากหน่วยงานอื่น')),
+      h('p', { class: 'sm muted' }, 'ถ้าจะให้หน่วยงานอื่นยืม ให้เปิดหน้าของชิ้นนั้นแล้วกด "ให้หน่วยงานอื่นยืม"'),
+      h('h3', {}, 'ของเราที่ให้ยืมไป (' + out.length + ')'), out.length ? out.map(card) : h('p', { class: 'muted' }, 'ไม่มี'),
+      h('h3', {}, 'ของที่เรายืมมา (' + inn.length + ')'), inn.length ? inn.map(card) : h('p', { class: 'muted' }, 'ไม่มี'));
+  } catch (e) { toast(e.message, true); }
+}
+
+// ---------- คำขอรออนุมัติ ----------
+function drawPending(list) {
+  const card = r => {
+    const reason = h('input', { type: 'text', placeholder: 'เหตุผล (ถ้าไม่อนุมัติ)' });
+    const decide = async approve => {
+      const d = await api('decide', { id: r.id, approve, note: reason.value });
+      applyBase(d.base); toast(approve ? 'อนุมัติและบันทึกจ่ายแล้ว' : 'บันทึกไม่อนุมัติแล้ว'); drawPending(d.list);
+    };
+    return h('div', { class: 'card' },
+      h('div', { class: 'sm muted' }, r.id + ' · ' + r.time),
+      h('div', { class: 'nm' }, r.name),
+      h('div', {}, r.requester + ' ขอ ' + fmtN(r.qty) + ' ' + r.unit),
+      h('div', { class: 'sm muted' }, 'คงเหลือ: ' + (r.stock == null ? 'ยังไม่นับ' : fmtN(r.stock) + ' ' + r.unit)),
+      r.note ? h('div', { class: 'sm' }, 'หมายเหตุ: ' + r.note) : null,
+      reason,
+      h('div', { class: 'menu' },
+        actionBtn('อนุมัติและจ่าย', 'okb', () => decide(true)),
+        actionBtn('ไม่อนุมัติ', 'badb', () => decide(false))));
+  };
+  render(back(), h('h2', {}, 'คำขอรออนุมัติ'),
+    list.length ? list.map(card) : h('p', { class: 'muted' }, 'ไม่มีคำขอค้าง'));
+}
+async function showPending() {
+  render(back(), h('p', { class: 'muted' }, 'กำลังโหลด...'));
+  try { const d = await api('pending'); applyBase(d.base); drawPending(d.list); }
+  catch (e) { toast(e.message, true); }
+}
+
+// ---------- นับสต๊อก ----------
+async function showCount() {
+  render(back(), h('p', { class: 'muted' }, 'กำลังโหลด...'));
+  let data;
+  try { data = await api('countList'); applyBase(data.base); } catch (e) { return toast(e.message, true); }
+  const counted = data.counted;
+  let partner = '';
+  try { partner = sessionStorage.getItem(PARTNER_KEY) || ''; } catch (_) {}
+  const partnerSel = h('select', {}, h('option', { value: '' }, '— เลือกผู้นับคนที่ 2 —'),
+    S.staff.filter(n => n !== S.me.name).map(n => h('option', { value: n, selected: n === partner }, n)));
+  partnerSel.addEventListener('change', () => { try { sessionStorage.setItem(PARTNER_KEY, partnerSel.value); } catch (_) {} });
+  const q = h('input', { type: 'search', placeholder: 'ค้นหา' });
+  const onlyLeft = h('input', { type: 'checkbox' });
+  const progress = h('p', { class: 'sm muted' });
+  const list = h('div', { class: 'list' });
+  const row = i => {
+    const done = counted[i.code] !== undefined;
+    const inp = h('input', { type: 'number', inputmode: 'decimal', min: '0', step: 'any', value: done ? String(counted[i.code]) : '' });
+    const el = h('div', { class: 'countrow' + (done ? ' done' : '') },
+      h('div', {}, h('div', { class: 'nm sm' }, i.name),
+        h('div', { class: 'sm muted' }, 'ในระบบ: ' + (i.qty == null ? 'ยังไม่มียอดตั้งต้น' : fmtN(i.qty)) + ' ' + i.unit)),
+      inp,
+      actionBtn(done ? 'แก้' : 'บันทึก', 'primary', async () => {
+        if (!partnerSel.value) throw new Error('เลือกผู้นับคนที่ 2 ก่อน');
+        const d = await api('count', { code: i.code, counted: inp.value, partner: partnerSel.value });
+        applyBase(d.base); Object.assign(counted, d.counted);
+        toast('บันทึก ' + i.name + ' แล้ว'); draw();
+      }));
+    return el;
+  };
+  const draw = () => {
+    const t = q.value.trim().toLowerCase();
+    const rows = S.items.filter(i => (!t || i.name.toLowerCase().includes(t) || i.code.includes(t)) &&
+      (!onlyLeft.checked || counted[i.code] === undefined));
+    progress.textContent = 'นับแล้ว ' + Object.keys(counted).length + ' จาก ' + S.items.length + ' รายการ';
+    list.replaceChildren(...rows.map(row));
+  };
+  q.addEventListener('input', draw);
+  onlyLeft.addEventListener('change', draw);
+  render(back(),
+    h('div', { class: 'card' },
+      h('h2', {}, 'นับสต๊อก'),
+      h('p', { class: 'sm muted' }, 'กรอกจำนวนที่เห็นจริงบนชั้น ถ้ารายการนั้นยังไม่มียอดตั้งต้น ตัวเลขที่บันทึกจะเป็นยอดตั้งต้น ถ้ามีแล้ว ระบบจะปรับยอดตามส่วนต่างให้เอง'),
+      h('label', {}, 'นับร่วมกับ'), partnerSel),
+    q, h('label', { class: 'check' }, onlyLeft, 'แสดงเฉพาะที่ยังไม่นับ'), progress, list);
+  draw();
+}
+
+main();
+</script>
+</body>
+</html>
