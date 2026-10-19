@@ -2,106 +2,212 @@
 <html lang="th">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#cfe3ff">
 <title>พัสดุ OPD</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Mali:wght@500;600;700&family=Prompt:wght@400;500;600&display=swap" rel="stylesheet">
 <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <style>
-  :root { --bg:#f4f6f8; --card:#fff; --ink:#1d2733; --muted:#6b7785; --line:#dde3e9;
-          --pri:#1f3864; --ok:#1e7d4f; --warn:#b45309; --bad:#b42318;
-          --open:#e6f4ea; --ask:#fde9d1; --life:#f8d7d7; }
-  * { box-sizing:border-box; }
-  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.45 Tahoma, "Sarabun", sans-serif; }
-  header { position:sticky; top:0; z-index:5; background:var(--pri); color:#fff; padding:10px 16px;
-           display:flex; justify-content:space-between; align-items:center; gap:8px; }
-  header span { font-size:13px; opacity:.85; text-align:right; }
-  main { padding:12px 16px 80px; max-width:640px; margin:0 auto; }
-  h2 { margin:4px 0 8px; font-size:20px; }
-  h3 { margin:16px 0 6px; font-size:16px; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:12px; }
-  .muted { color:var(--muted); } .sm { font-size:13px; } .bad { color:var(--bad); } .ok { color:var(--ok); }
-  .big { font-size:20px; font-weight:bold; margin:10px 0; }
-  input, select, textarea { width:100%; font:inherit; padding:10px 12px; border:1px solid var(--line);
-           border-radius:10px; background:#fff; margin:6px 0; }
-  label { display:block; font-size:14px; color:var(--muted); margin-top:8px; }
-  button { font:inherit; border:1px solid var(--line); background:#fff; color:var(--ink); border-radius:10px;
-           padding:10px 14px; cursor:pointer; }
-  button:disabled { opacity:.5; }
-  button.primary { background:var(--pri); border-color:var(--pri); color:#fff; font-weight:bold; }
-  button.okb { background:var(--ok); border-color:var(--ok); color:#fff; }
-  button.badb { color:var(--bad); border-color:var(--bad); }
-  button.link { border:none; background:none; color:var(--pri); padding:6px 0; }
-  .menu { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px; }
-  .actions { display:grid; gap:8px; margin-top:12px; }
-  .stepper { display:flex; gap:8px; align-items:center; }
-  .stepper input { text-align:center; font-size:20px; }
-  .stepper button { width:52px; height:48px; font-size:22px; flex:none; }
-  .list { display:grid; gap:6px; }
-  .row { display:flex; justify-content:space-between; align-items:center; gap:10px; text-align:left; width:100%;
-         background:#fff; border:1px solid var(--line); border-radius:10px; padding:10px 12px; }
-  .row .right { text-align:right; flex:none; }
-  .nm { font-weight:bold; }
-  .qty { font-size:14px; margin-top:4px; }
-  .badge { display:inline-block; font-size:12px; padding:2px 8px; border-radius:99px; }
-  .b-open { background:var(--open); } .b-ask { background:var(--ask); } .b-life { background:var(--life); }
-  .countrow { display:grid; grid-template-columns:1fr 90px 64px; gap:6px; align-items:center;
-              background:#fff; border:1px solid var(--line); border-radius:10px; padding:8px 10px; }
-  .countrow.done { background:#eef8f1; }
-  .countrow input { margin:0; text-align:center; }
-  .check { display:flex; align-items:center; gap:8px; margin:8px 0; color:var(--ink); font-size:15px; }
-  .check input { width:auto; margin:0; }
-  #toast { position:fixed; left:16px; right:16px; bottom:16px; z-index:10; background:var(--ink); color:#fff;
-           padding:12px 14px; border-radius:10px; opacity:0; transform:translateY(20px); transition:.2s;
-           pointer-events:none; text-align:center; }
+  :root {
+    --sky:#e8f2ff; --sky2:#cfe3ff; --blue:#6ea8f0; --blue-d:#3f7fd6;
+    --blush:#ffeef4; --pink:#ffc7da; --pink-d:#e8799f;
+    --ink:#3b4660; --muted:#8a94ad; --line:#e6ebf5; --card:#ffffff;
+    --ok:#3dbb8a; --ok-bg:#e3f7ee; --bad:#e2637d; --bad-bg:#ffe8ed;
+    --open:#e3f7ee; --open-t:#2b9a70; --ask:#fff1df; --ask-t:#c27a22; --life:#ffe3ea; --life-t:#d0496b;
+    --r:20px; --shadow:0 6px 20px rgba(110,140,200,.14);
+  }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { margin:0; }
+  body {
+    font:16px/1.5 "Prompt", system-ui, sans-serif; color:var(--ink);
+    background:linear-gradient(180deg, var(--sky) 0%, #f6f9ff 40%, var(--blush) 100%) fixed;
+    min-height:100vh;
+  }
+  .brand { font-family:"Mali", "Prompt", sans-serif; }
+  button, input, select { font:inherit; color:inherit; }
+
+  /* ---------- top bar ---------- */
+  header {
+    position:sticky; top:0; z-index:5; padding:14px 16px 12px;
+    background:linear-gradient(120deg, rgba(207,227,255,.92), rgba(255,215,229,.92));
+    backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    border-bottom:1px solid rgba(255,255,255,.7);
+  }
+  .top { max-width:560px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .hello { font-size:13px; color:var(--muted); line-height:1.2; }
+  .hello b { display:block; font-family:"Mali", sans-serif; font-size:19px; color:var(--ink); }
+  .clinic-chip {
+    border:none; background:#fff; border-radius:999px; padding:8px 12px 8px 10px;
+    display:flex; align-items:center; gap:6px; font-size:13px; font-weight:500; box-shadow:var(--shadow);
+    max-width:56%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .clinic-chip .dot { width:10px; height:10px; border-radius:50%; background:var(--pink-d); flex:none; }
+  .clinic-chip.after .dot { background:var(--blue-d); }
+
+  main { max-width:560px; margin:0 auto; padding:16px 16px 96px; }
+  h2 { font-family:"Mali", sans-serif; font-size:22px; margin:6px 0 10px; }
+  h3 { font-family:"Mali", sans-serif; font-size:17px; margin:20px 0 8px; }
+  .muted { color:var(--muted); } .sm { font-size:13px; }
+  .card { background:var(--card); border-radius:var(--r); padding:18px; box-shadow:var(--shadow); margin-bottom:14px; }
+
+  /* ---------- home ---------- */
+  .scan-hero {
+    width:100%; border:none; border-radius:26px; padding:22px 20px; text-align:left; cursor:pointer;
+    background:linear-gradient(135deg, #8ebcf7 0%, #b9a8f2 55%, #f7a8c6 100%); color:#fff;
+    box-shadow:0 12px 28px rgba(140,140,230,.35); display:flex; align-items:center; gap:16px;
+  }
+  .scan-hero .ico { width:60px; height:60px; border-radius:18px; background:rgba(255,255,255,.25); display:grid; place-items:center; flex:none; }
+  .scan-hero b { font-family:"Mali", sans-serif; font-size:22px; display:block; }
+  .scan-hero span { font-size:13px; opacity:.92; }
+  .tiles { display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin:14px 0 18px; }
+  .tile {
+    border:none; background:#fff; border-radius:18px; padding:14px 6px 12px; box-shadow:var(--shadow);
+    display:flex; flex-direction:column; align-items:center; gap:6px; font-size:13px; font-weight:500; position:relative;
+  }
+  .tile .ti { width:42px; height:42px; border-radius:14px; display:grid; place-items:center; font-size:22px; }
+  .tile .badge-n { position:absolute; top:8px; right:10px; background:var(--pink-d); color:#fff; border-radius:999px; font-size:11px; min-width:20px; padding:1px 6px; }
+  .search { position:relative; }
+  .search input { width:100%; border:none; background:#fff; border-radius:16px; padding:13px 14px 13px 42px; box-shadow:var(--shadow); outline:none; }
+  .search svg { position:absolute; left:14px; top:50%; transform:translateY(-50%); }
+  .chips { display:flex; gap:8px; overflow-x:auto; padding:12px 2px 6px; scrollbar-width:none; }
+  .chips::-webkit-scrollbar { display:none; }
+  .chip { border:none; white-space:nowrap; border-radius:999px; padding:7px 14px; font-size:13px; background:rgba(255,255,255,.7); color:var(--muted); }
+  .chip.on { background:var(--blue); color:#fff; }
+  .list { display:grid; gap:10px; margin-top:6px; }
+  .item {
+    width:100%; border:none; background:#fff; border-radius:18px; padding:12px 14px; text-align:left;
+    display:flex; align-items:center; gap:12px; box-shadow:0 3px 12px rgba(110,140,200,.10);
+  }
+  .item .em { width:40px; height:40px; border-radius:13px; display:grid; place-items:center; font-size:20px; flex:none; }
+  .item .nm { font-weight:500; font-size:15px; line-height:1.3; }
+  .item .meta { font-size:12px; color:var(--muted); }
+  .item .q { margin-left:auto; text-align:right; flex:none; }
+  .item .q b { display:block; font-size:16px; }
+  .tag { display:inline-block; font-size:11px; padding:2px 9px; border-radius:999px; font-weight:500; }
+  .t-open { background:var(--open); color:var(--open-t); }
+  .t-ask { background:var(--ask); color:var(--ask-t); }
+  .t-life { background:var(--life); color:var(--life-t); }
+
+  /* ---------- item page ---------- */
+  .back { border:none; background:rgba(255,255,255,.75); border-radius:999px; padding:8px 14px; font-size:14px; margin-bottom:12px; }
+  .hero-item { text-align:center; padding:24px 18px; }
+  .hero-item .em-big { width:76px; height:76px; margin:0 auto 10px; border-radius:24px; display:grid; place-items:center; font-size:38px; }
+  .hero-item .code { font-size:12px; color:var(--muted); }
+  .stock { margin:14px auto 4px; display:inline-flex; align-items:baseline; gap:6px; background:var(--sky); border-radius:16px; padding:8px 18px; }
+  .stock b { font-size:28px; font-family:"Mali", sans-serif; color:var(--blue-d); }
+  .stepper { display:flex; align-items:center; justify-content:center; gap:14px; margin:18px 0 6px; }
+  .stepper button { width:56px; height:56px; border-radius:50%; border:none; font-size:28px; background:var(--sky); color:var(--blue-d); }
+  .stepper button.plus { background:var(--blush); color:var(--pink-d); }
+  .stepper input { width:96px; text-align:center; font-size:30px; font-family:"Mali", sans-serif; border:none; background:transparent; outline:none; }
+  .unit { text-align:center; color:var(--muted); font-size:13px; }
+  .field { width:100%; border:1.5px solid var(--line); background:#fff; border-radius:14px; padding:12px 14px; margin:8px 0; outline:none; }
+  .field:focus { border-color:var(--blue); }
+  label.lb { display:block; font-size:13px; color:var(--muted); margin-top:10px; }
+  .btn { width:100%; border:none; border-radius:16px; padding:15px; font-size:16px; font-weight:600; cursor:pointer; }
+  .btn:disabled { opacity:.55; }
+  .btn-main { background:linear-gradient(120deg, var(--blue) 0%, #a59cf0 60%, var(--pink-d) 100%); color:#fff; box-shadow:0 8px 20px rgba(130,130,230,.3); }
+  .btn-soft { background:var(--sky); color:var(--blue-d); }
+  .btn-pink { background:var(--blush); color:var(--pink-d); }
+  .btn-ok { background:var(--ok); color:#fff; }
+  .btn-line { background:#fff; color:var(--bad); border:1.5px solid var(--bad-bg); }
+  .stack { display:grid; gap:10px; margin-top:16px; }
+  .row2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .note { background:var(--ask); color:var(--ask-t); border-radius:14px; padding:10px 12px; font-size:13px; margin-top:12px; }
+  .note.life { background:var(--life); color:var(--life-t); }
+  .check { display:flex; align-items:center; gap:10px; margin:12px 0; font-size:15px; }
+  .check input { width:20px; height:20px; accent-color:var(--pink-d); }
+
+  /* ---------- sheet / modal ---------- */
+  .overlay { position:fixed; inset:0; background:rgba(60,70,100,.35); z-index:20; display:flex; align-items:flex-end; justify-content:center; animation:fade .2s; }
+  .sheet { width:100%; max-width:560px; background:#fff; border-radius:28px 28px 0 0; padding:22px 18px calc(22px + env(safe-area-inset-bottom)); animation:up .25s ease-out; }
+  .sheet .grab { width:44px; height:5px; border-radius:99px; background:var(--line); margin:-8px auto 14px; }
+  .opt { width:100%; border:2px solid var(--line); background:#fff; border-radius:18px; padding:16px; display:flex; align-items:center; gap:14px; text-align:left; margin-bottom:10px; }
+  .opt.on { border-color:var(--pink-d); background:var(--blush); }
+  .opt .oi { width:46px; height:46px; border-radius:15px; display:grid; place-items:center; font-size:24px; flex:none; }
+  .opt b { display:block; font-size:16px; }
+  .success { text-align:center; }
+  .success .big-ok { width:84px; height:84px; border-radius:50%; margin:4px auto 12px; background:var(--ok-bg); display:grid; place-items:center; animation:pop .35s ease-out; }
+  @keyframes fade { from { opacity:0; } }
+  @keyframes up { from { transform:translateY(40px); opacity:.4; } }
+  @keyframes pop { 0% { transform:scale(.5); } 70% { transform:scale(1.1); } }
+
+  /* ---------- count ---------- */
+  .crow { background:#fff; border-radius:16px; padding:10px 12px; display:grid; grid-template-columns:1fr 84px 64px; gap:8px; align-items:center; box-shadow:0 3px 12px rgba(110,140,200,.10); }
+  .crow.done { background:var(--ok-bg); }
+  .crow input { width:100%; border:1.5px solid var(--line); border-radius:12px; padding:9px; text-align:center; outline:none; }
+  .crow .btn { padding:10px 0; font-size:14px; border-radius:12px; }
+  .progress { height:10px; background:var(--sky); border-radius:99px; overflow:hidden; margin:8px 0 4px; }
+  .progress i { display:block; height:100%; background:linear-gradient(90deg, var(--blue), var(--pink-d)); border-radius:99px; transition:width .3s; }
+
+  /* ---------- toast ---------- */
+  #toast { position:fixed; left:16px; right:16px; top:calc(12px + env(safe-area-inset-top)); z-index:30; margin:0 auto; max-width:520px;
+    background:var(--ink); color:#fff; padding:13px 16px; border-radius:16px; text-align:center; font-size:14px;
+    box-shadow:0 10px 24px rgba(40,50,80,.25); opacity:0; transform:translateY(-16px); transition:.2s; pointer-events:none; }
   #toast.show { opacity:1; transform:none; } #toast.bad { background:var(--bad); }
+  .loading { text-align:center; padding:60px 0; color:var(--muted); }
+  .loading .blob { width:54px; height:54px; margin:0 auto 12px; border-radius:50%; background:linear-gradient(135deg, var(--sky2), var(--pink)); animation:pulse 1.2s infinite ease-in-out; }
+  @keyframes pulse { 50% { transform:scale(.8); opacity:.6; } }
 </style>
 </head>
 <body>
-<header><b>พัสดุ OPD</b><span id="who"></span></header>
-<main id="app"><p class="muted">กำลังเปิดระบบ...</p></main>
+<header><div class="top">
+  <div class="hello" id="hello"><span>พัสดุ OPD</span><b class="brand">สวัสดีค่ะ 🌸</b></div>
+  <button class="clinic-chip" id="clinicChip" hidden></button>
+</div></header>
+<main id="app"><div class="loading"><div class="blob"></div>กำลังเปิดระบบ...</div></main>
 <div id="toast"></div>
 
 <script>
-// ===== แก้ 2 ค่านี้ตอนติดตั้ง =====
 const CONFIG = {
   LIFF_ID: '2012074647-BmAlHwZ3',
   API_URL: 'https://script.google.com/macros/s/AKfycbx8jDwnC2srH8r_7BqTh7m4cZM_3WWhI8HZGr-MtkNrV5VHNsVc09mksqlhnok9VpOq/exec'
 };
-// ==================================
 
-const S = { me: null, items: [], pending: 0, staff: [], units: [], idToken: '' };
+const S = { me: null, items: [], pending: 0, staff: [], units: [], clinics: [], clinic: '', cat: 'ทั้งหมด', idToken: '' };
 const $app = document.getElementById('app');
-const PARTNER_KEY = 'opd-count-partner';
+const KEY_CLINIC = 'opd-clinic';
+const KEY_PARTNER = 'opd-count-partner';
 
-// ---------- ตัวช่วยหน้าจอ ----------
+// ---------- ตัวช่วย ----------
 function h(tag, props, ...kids) {
   const el = document.createElement(tag);
   for (const [k, v] of Object.entries(props || {})) {
     if (v === false || v == null) continue;
     if (k === 'class') el.className = v;
+    else if (k === 'html') el.innerHTML = v;
     else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
     else el.setAttribute(k, v === true ? '' : v);
   }
-  kids.flat().forEach(c => {
-    if (c == null || c === false) return;
-    el.append(c.nodeType ? c : document.createTextNode(String(c)));
-  });
+  kids.flat().forEach(c => { if (c != null && c !== false) el.append(c.nodeType ? c : document.createTextNode(String(c))); });
   return el;
 }
 function render(...nodes) { $app.replaceChildren(...nodes.filter(Boolean)); window.scrollTo(0, 0); }
+function loading(msg) { render(h('div', { class: 'loading' }, h('div', { class: 'blob' }), msg || 'กำลังโหลด...')); }
 function toast(msg, bad) {
   const t = document.getElementById('toast');
   t.textContent = msg; t.className = 'show' + (bad ? ' bad' : '');
-  clearTimeout(toast.timer); toast.timer = setTimeout(() => { t.className = ''; }, 2800);
+  clearTimeout(toast.t); toast.t = setTimeout(() => { t.className = ''; }, 2600);
 }
 function fmtN(n) { return Number(n).toLocaleString('th-TH', { maximumFractionDigits: 2 }); }
-function badge(t) {
-  const cls = t === 'ต้องขอ' ? 'b-ask' : t === 'กู้ชีพ' ? 'b-life' : 'b-open';
-  return h('span', { class: 'badge ' + cls }, t);
-}
 function isKeeper() { return S.me && S.me.keeper; }
-function back(fn) { return h('button', { class: 'link', onclick: fn || showHome }, '‹ กลับ'); }
-function actionBtn(label, cls, fn) {
-  const b = h('button', { class: cls || '' }, label);
+function store(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (_) {} }
+function load(k) { try { return localStorage.getItem(k); } catch (_) { return null; } }
+function today() { const d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
+
+const CAT_EMOJI = { 'วัสดุสำนักงาน': '📎', 'วัสดุงานบ้านงานครัว': '🧴', 'วัสดุการแพทย์': '🩺', 'วัสดุคอมพิวเตอร์': '🖨️', 'วัสดุไฟฟ้าและวิทยุ': '🔦', 'วัสดุเวชภัณฑ์ที่มิใช่ยา': '💉' };
+const CAT_BG = { 'วัสดุสำนักงาน': '#e8f2ff', 'วัสดุงานบ้านงานครัว': '#e9f8f1', 'วัสดุการแพทย์': '#ffeef4', 'วัสดุคอมพิวเตอร์': '#efeaff', 'วัสดุไฟฟ้าและวิทยุ': '#fff6df', 'วัสดุเวชภัณฑ์ที่มิใช่ยา': '#ffeef4' };
+const CAT_SHORT = { 'วัสดุสำนักงาน': 'สำนักงาน', 'วัสดุงานบ้านงานครัว': 'งานบ้าน', 'วัสดุการแพทย์': 'การแพทย์', 'วัสดุคอมพิวเตอร์': 'คอมพิวเตอร์', 'วัสดุไฟฟ้าและวิทยุ': 'ไฟฟ้า', 'วัสดุเวชภัณฑ์ที่มิใช่ยา': 'เวชภัณฑ์' };
+function emo(i) { return h('div', { class: 'em', style: 'background:' + (CAT_BG[i.cat] || '#e8f2ff') }, CAT_EMOJI[i.cat] || '📦'); }
+function tag(t) { return h('span', { class: 'tag ' + (t === 'ต้องขอ' ? 't-ask' : t === 'กู้ชีพ' ? 't-life' : 't-open') }, t === 'ต้องขอ' ? '🔒 ต้องขอ' : t === 'กู้ชีพ' ? '🚑 กู้ชีพ' : 'หยิบได้เลย'); }
+const ICON_SCAN = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2M7 12h10"/></svg>';
+const ICON_SEARCH = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8a94ad" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
+const ICON_OK = '<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#3dbb8a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
+
+function back(fn, label) { return h('button', { class: 'back', onclick: fn || showHome }, '‹ ' + (label || 'กลับ')); }
+function act(label, cls, fn) {
+  const b = h('button', { class: 'btn ' + (cls || 'btn-main') }, label);
   b.addEventListener('click', async () => {
     b.disabled = true;
     try { await fn(); } catch (e) { toast(e.message, true); } finally { b.disabled = false; }
@@ -109,33 +215,78 @@ function actionBtn(label, cls, fn) {
   return b;
 }
 function stepper(start) {
-  const input = h('input', { type: 'number', inputmode: 'decimal', min: '0', step: 'any', value: start == null ? '1' : String(start) });
+  const input = h('input', { type: 'number', inputmode: 'decimal', min: '0', step: 'any', value: String(start == null ? 1 : start) });
   const minus = h('button', { type: 'button', onclick: () => { input.value = Math.max(1, (Number(input.value) || 1) - 1); } }, '−');
-  const plus = h('button', { type: 'button', onclick: () => { input.value = (Number(input.value) || 0) + 1; } }, '+');
+  const plus = h('button', { type: 'button', class: 'plus', onclick: () => { input.value = (Number(input.value) || 0) + 1; } }, '+');
   return { el: h('div', { class: 'stepper' }, minus, input, plus), input };
 }
-function unitInput(placeholder) {
-  const id = 'units-' + Math.random().toString(36).slice(2);
-  const input = h('input', { type: 'text', list: id, placeholder });
-  const dl = h('datalist', { id }, S.units.map(u => h('option', { value: u })));
-  return { el: h('div', {}, input, dl), input };
+function unitInput(ph) {
+  const id = 'u' + Math.random().toString(36).slice(2);
+  const input = h('input', { class: 'field', type: 'text', list: id, placeholder: ph });
+  return { el: h('div', {}, input, h('datalist', { id }, S.units.map(u => h('option', { value: u })))), input };
+}
+function sheet(...kids) {
+  const ov = h('div', { class: 'overlay' });
+  const sh = h('div', { class: 'sheet' }, h('div', { class: 'grab' }), ...kids);
+  ov.append(sh);
+  ov.addEventListener('click', e => { if (e.target === ov && ov.dataset.lock !== '1') ov.remove(); });
+  document.body.append(ov);
+  return ov;
 }
 
-// ---------- คุยกับหลังบ้าน ----------
+// ---------- หลังบ้าน ----------
 async function api(action, data) {
-  const res = await fetch(CONFIG.API_URL, {
-    method: 'POST',
-    body: JSON.stringify(Object.assign({ action, idToken: S.idToken }, data || {}))
-  });
+  const res = await fetch(CONFIG.API_URL, { method: 'POST', body: JSON.stringify(Object.assign({ action, idToken: S.idToken }, data || {})) });
   const j = await res.json();
   if (!j.ok) throw new Error(j.error);
   return j.data;
 }
 function applyBase(d) {
-  S.me = d.me; S.items = d.items; S.pending = d.pending; S.staff = d.staffNames; S.units = d.units || [];
-  document.getElementById('who').textContent = S.me ? S.me.name + ' · ' + S.me.role : '';
+  S.me = d.me; S.items = d.items; S.pending = d.pending; S.staff = d.staffNames; S.units = d.units || []; S.clinics = d.clinics || [];
+  if (S.me) {
+    const first = S.me.name.split(' ')[0];
+    document.getElementById('hello').replaceChildren(h('span', {}, 'พัสดุ OPD · ' + S.me.role), h('b', { class: 'brand' }, 'สวัสดี ' + first + ' 🌸'));
+  }
+  drawChip();
 }
-function itemCodeFromUrl() { return new URLSearchParams(location.search).get('item'); }
+function codeFromUrl() { return new URLSearchParams(location.search).get('item'); }
+
+// ---------- คลินิก (เลือกครั้งเดียวต่อวัน) ----------
+function restoreClinic() {
+  try {
+    const v = JSON.parse(load(KEY_CLINIC) || 'null');
+    if (v && v.day === today() && S.clinics.indexOf(v.name) >= 0) S.clinic = v.name;
+  } catch (_) {}
+}
+function drawChip() {
+  const chip = document.getElementById('clinicChip');
+  if (!S.me || !S.clinics.length) { chip.hidden = true; return; }
+  chip.hidden = false;
+  chip.className = 'clinic-chip' + (/นอกเวลา/.test(S.clinic) ? ' after' : '');
+  chip.replaceChildren(h('span', { class: 'dot' }), S.clinic ? S.clinic.replace('คลินิก', '') : 'เลือกคลินิก', ' ▾');
+  chip.onclick = () => pickClinic();
+}
+function pickClinic(then) {
+  return new Promise(resolve => {
+    const ov = sheet(
+      h('h2', { style: 'margin-top:0' }, 'วันนี้เบิกให้คลินิกไหน?'),
+      h('p', { class: 'muted sm', style: 'margin-top:-4px' }, 'เลือกครั้งเดียว ระบบจะจำไว้ทั้งวัน กดเปลี่ยนได้ที่มุมขวาบน'),
+      S.clinics.map(c => {
+        const after = /นอกเวลา/.test(c);
+        return h('button', { class: 'opt' + (c === S.clinic ? ' on' : ''), onclick: () => {
+          S.clinic = c; store(KEY_CLINIC, JSON.stringify({ name: c, day: today() })); drawChip(); ov.remove();
+          toast('เลือก ' + c + ' แล้ว'); resolve(c); if (then) then(c);
+        } },
+          h('div', { class: 'oi', style: 'background:' + (after ? 'var(--sky)' : 'var(--blush)') }, after ? '🌙' : '🩺'),
+          h('div', {}, h('b', {}, c), h('span', { class: 'sm muted' }, after ? 'หลังเวลาราชการ' : 'ในเวลาราชการ')));
+      }));
+    if (!S.clinic) ov.dataset.lock = '1';
+  });
+}
+async function needClinic() {
+  if (!S.clinics.length || S.clinic) return S.clinic;
+  return pickClinic();
+}
 
 // ---------- เริ่มต้น ----------
 async function main() {
@@ -145,63 +296,75 @@ async function main() {
     S.idToken = liff.getIDToken();
     const d = await api('init');
     if (!d.me) return showRegister(d);
-    applyBase(d);
-    const code = itemCodeFromUrl();
-    code ? showItem(code) : showHome();
+    applyBase(d); restoreClinic(); drawChip();
+    const c = codeFromUrl();
+    c ? showItem(c) : showHome();
+    if (!S.clinic && S.clinics.length) pickClinic();
   } catch (e) {
-    render(h('div', { class: 'card' },
-      h('p', { class: 'bad' }, 'เปิดระบบไม่สำเร็จ: ' + e.message),
-      h('p', { class: 'muted' }, 'ลองปิดหน้านี้แล้วเปิดใหม่จากเมนูใน LINE')));
+    render(h('div', { class: 'card', style: 'text-align:center' },
+      h('div', { style: 'font-size:42px' }, '😿'),
+      h('h2', {}, 'เปิดระบบไม่สำเร็จ'),
+      h('p', { class: 'muted' }, e.message),
+      h('p', { class: 'sm muted' }, 'ลองปิดหน้านี้แล้วเปิดใหม่จากเมนูใน LINE')));
   }
 }
 
-// ---------- ลงทะเบียน ----------
 function showRegister(d) {
-  const sel = h('select', {}, h('option', { value: '' }, '— เลือกชื่อของคุณ —'),
-    d.unclaimed.map(s => h('option', { value: s.row }, s.name)));
-  const code = h('input', { type: 'tel', placeholder: 'รหัสลงทะเบียน (ถามหัวหน้า)', maxlength: '12' });
-  render(h('div', { class: 'card' },
-    h('h2', {}, 'ลงทะเบียนครั้งแรก'),
-    h('p', { class: 'muted' }, 'บัญชี LINE: ' + (d.lineName || '-')),
-    h('p', { class: 'sm muted' }, 'ทำครั้งเดียว ครั้งต่อไประบบจะจำได้เอง'),
-    sel, code,
-    actionBtn('ลงทะเบียน', 'primary', async () => {
+  const sel = h('select', { class: 'field' }, h('option', { value: '' }, '— เลือกชื่อของคุณ —'), d.unclaimed.map(s => h('option', { value: s.row }, s.name)));
+  const code = h('input', { class: 'field', type: 'tel', placeholder: 'รหัสลงทะเบียน (ถามหัวหน้า)', maxlength: '12' });
+  render(h('div', { class: 'card', style: 'text-align:center' },
+    h('div', { style: 'font-size:46px' }, '🐰'),
+    h('h2', {}, 'ยินดีต้อนรับ!'),
+    h('p', { class: 'muted sm' }, 'ลงทะเบียนครั้งเดียว ครั้งต่อไประบบจำคุณได้เลย'),
+    h('p', { class: 'sm' }, 'บัญชี LINE: ' + (d.lineName || '-')),
+    h('div', { style: 'text-align:left' }, sel, code),
+    h('div', { class: 'stack' }, act('ลงทะเบียน', 'btn-main', async () => {
       if (!sel.value) throw new Error('กรุณาเลือกชื่อ');
       const r = await api('register', { row: sel.value, code: code.value });
-      applyBase(r); toast('ลงทะเบียนเรียบร้อย');
-      const c = itemCodeFromUrl(); c ? showItem(c) : showHome();
-    }),
-    d.unclaimed.length ? null : h('p', { class: 'bad' }, 'ไม่มีชื่อที่ว่าง กรุณาแจ้งแอดมินให้เพิ่มชื่อในแท็บบุคลากร')));
+      applyBase(r); toast('ลงทะเบียนเรียบร้อย 🎉');
+      const c = codeFromUrl(); c ? showItem(c) : showHome();
+      if (S.clinics.length) pickClinic();
+    })),
+    d.unclaimed.length ? null : h('p', { class: 'sm', style: 'color:var(--bad)' }, 'ไม่มีชื่อที่ว่าง กรุณาแจ้งแอดมิน')));
 }
 
 // ---------- หน้าแรก ----------
 function itemRow(i) {
-  return h('button', { class: 'row', onclick: () => showItem(i.code) },
-    h('div', {}, h('div', { class: 'nm' }, i.name), h('div', { class: 'sm muted' }, i.code)),
-    h('div', { class: 'right' }, badge(i.type),
-      h('div', { class: 'qty' }, i.qty == null ? 'ยังไม่นับ' : fmtN(i.qty) + ' ' + i.unit)));
+  return h('button', { class: 'item', onclick: () => showItem(i.code) }, emo(i),
+    h('div', { style: 'min-width:0' }, h('div', { class: 'nm' }, i.name), h('div', { class: 'meta' }, tag(i.type))),
+    h('div', { class: 'q' }, h('b', {}, i.qty == null ? '–' : fmtN(i.qty)), h('span', { class: 'meta' }, i.qty == null ? 'ยังไม่นับ' : i.unit)));
 }
 function showHome() {
   const q = h('input', { type: 'search', placeholder: 'ค้นหาชื่อหรือรหัสพัสดุ' });
   const list = h('div', { class: 'list' });
+  const cats = ['ทั้งหมด'].concat([...new Set(S.items.map(i => i.cat))]);
+  const chips = h('div', { class: 'chips' });
   const draw = () => {
+    chips.replaceChildren(...cats.map(c => h('button', { class: 'chip' + (c === S.cat ? ' on' : ''), onclick: () => { S.cat = c; draw(); } }, c === 'ทั้งหมด' ? c : (CAT_EMOJI[c] || '') + ' ' + (CAT_SHORT[c] || c))));
     const t = q.value.trim().toLowerCase();
-    const rows = S.items.filter(i => !t || i.name.toLowerCase().includes(t) || i.code.includes(t));
-    list.replaceChildren(...rows.slice(0, 80).map(itemRow));
-    if (!rows.length) list.append(h('p', { class: 'muted' }, 'ไม่พบรายการ'));
+    const rows = S.items.filter(i => (S.cat === 'ทั้งหมด' || i.cat === S.cat) && (!t || i.name.toLowerCase().includes(t) || i.code.includes(t)));
+    list.replaceChildren(...rows.slice(0, 100).map(itemRow));
+    if (!rows.length) list.append(h('p', { class: 'muted', style: 'text-align:center' }, 'ไม่พบรายการ 🔍'));
   };
   q.addEventListener('input', draw);
+  const tiles = [
+    { t: 'ยืม-คืน', e: '🤝', bg: 'var(--sky)', fn: showLoans },
+    isKeeper() ? { t: 'คำขอ', e: '📨', bg: 'var(--blush)', fn: showPending, n: S.pending } : { t: 'ขอของ', e: '🔒', bg: 'var(--blush)', fn: () => { S.cat = 'ทั้งหมด'; q.value = ''; toast('เลือกของที่มีป้าย 🔒 ต้องขอ แล้วกดส่งคำขอ'); } },
+    isKeeper() ? { t: 'นับสต๊อก', e: '📋', bg: '#efeaff', fn: showCount } : { t: 'คลินิก', e: '🏥', bg: '#efeaff', fn: () => pickClinic() }
+  ];
   render(
-    h('div', { class: 'menu' },
-      h('button', { class: 'primary', onclick: scan }, 'สแกน QR'),
-      h('button', { onclick: showLoans }, 'ยืม-คืน'),
-      isKeeper() ? h('button', { onclick: showPending }, 'คำขอรออนุมัติ' + (S.pending ? ' (' + S.pending + ')' : '')) : null,
-      isKeeper() ? h('button', { onclick: showCount }, 'นับสต๊อก') : null),
-    q, list);
+    h('button', { class: 'scan-hero', onclick: scan },
+      h('div', { class: 'ico', html: ICON_SCAN }),
+      h('div', {}, h('b', {}, 'สแกนเบิกของ'), h('span', {}, 'ส่องกล้องที่ป้าย QR บนชั้นวาง'))),
+    h('div', { class: 'tiles' }, tiles.map(x => h('button', { class: 'tile', onclick: x.fn },
+      x.n ? h('span', { class: 'badge-n' }, x.n) : null,
+      h('div', { class: 'ti', style: 'background:' + x.bg }, x.e), x.t))),
+    h('div', { class: 'search', html: ICON_SEARCH }, q), chips, list);
   draw();
 }
 async function scan() {
   try {
+    if (!(await needClinic()) && S.clinics.length) return;
     if (!liff.scanCodeV2) throw new Error('ใช้กล้องมือถือสแกนป้าย QR ได้เลย');
     const r = await liff.scanCodeV2();
     if (!r || !r.value) return;
@@ -216,185 +379,176 @@ function showItem(code) {
   const i = S.items.find(x => x.code === code);
   if (!i) { toast('ไม่พบรหัส ' + code, true); return showHome(); }
   const st = stepper(1);
-  const note = h('input', { type: 'text', placeholder: 'หมายเหตุ (ถ้ามี)' });
-  const go = async (action, msg, extra) => {
-    const d = await api(action, Object.assign({ code: i.code, qty: st.input.value, note: note.value }, extra || {}));
-    applyBase(d); toast(msg); showItem(i.code);
+  const note = h('input', { class: 'field', type: 'text', placeholder: 'หมายเหตุ (ถ้ามี)' });
+  const go = async (action, title) => {
+    const clinic = await needClinic();
+    const d = await api(action, { code: i.code, qty: st.input.value, note: note.value, clinic });
+    applyBase(d); done(i, Number(st.input.value), title);
   };
-  const actions = h('div', { class: 'actions' });
-  if (i.type === 'หยิบได้เลย') actions.append(actionBtn('เบิก', 'primary', () => go('withdraw', 'บันทึกการเบิกแล้ว')));
-  if (i.type === 'กู้ชีพ') actions.append(actionBtn('บันทึกใช้จากรถฉุกเฉิน', 'primary', () => go('withdraw', 'บันทึกแล้ว')));
+  const acts = h('div', { class: 'stack' });
+  if (i.type === 'หยิบได้เลย') acts.append(act('เบิก', 'btn-main', () => go('withdraw', 'เบิกเรียบร้อย')));
+  if (i.type === 'กู้ชีพ') acts.append(act('บันทึกใช้จากรถฉุกเฉิน', 'btn-main', () => go('withdraw', 'บันทึกเรียบร้อย')));
   if (i.type === 'ต้องขอ') {
-    actions.append(actionBtn('ส่งคำขอ', 'primary', () => go('request', 'ส่งคำขอแล้ว รอผู้ดูแลอนุมัติ')));
-    if (isKeeper()) {
-      const label = S.me.role === 'หัวหน้า' ? 'จ่ายเอง (ใช้กุญแจสำรอง)' : 'จ่ายเลย';
-      actions.append(actionBtn(label, '', () => go('withdraw', 'บันทึกการจ่ายแล้ว')));
-    }
+    acts.append(act('ส่งคำขอ', 'btn-main', () => go('request', 'ส่งคำขอแล้ว')));
+    if (isKeeper()) acts.append(act(S.me.role === 'หัวหน้า' ? 'จ่ายเอง (ใช้กุญแจสำรอง)' : 'จ่ายเลย', 'btn-pink', () => go('withdraw', 'บันทึกการจ่ายแล้ว')));
   }
-  if (i.type === 'หยิบได้เลย' || (i.type === 'ต้องขอ' && isKeeper())) {
-    actions.append(h('button', { onclick: () => showLoanOut(i) }, 'ให้หน่วยงานอื่นยืม'));
-  }
-  if (isKeeper()) actions.append(h('button', { onclick: () => showReceive(i) }, 'รับของเข้าจากพัสดุ'));
+  const more = h('div', { class: 'row2' });
+  if (i.type === 'หยิบได้เลย' || (i.type === 'ต้องขอ' && isKeeper())) more.append(h('button', { class: 'btn btn-soft', onclick: () => showLoanOut(i) }, '🤝 ให้ยืม'));
+  if (isKeeper()) more.append(h('button', { class: 'btn btn-soft', onclick: () => showReceive(i) }, '📦 รับเข้า'));
+  if (more.children.length) acts.append(more);
 
   render(back(),
+    h('div', { class: 'card hero-item' },
+      h('div', { class: 'em-big', style: 'background:' + (CAT_BG[i.cat] || '#e8f2ff') }, CAT_EMOJI[i.cat] || '📦'),
+      h('h2', { style: 'margin:0 0 4px' }, i.name),
+      h('div', { class: 'code' }, i.code + ' · ' + (CAT_SHORT[i.cat] || i.cat)),
+      h('div', { style: 'margin-top:8px' }, tag(i.type)),
+      h('div', { class: 'stock' }, h('span', { class: 'sm muted' }, 'คงเหลือ'), h('b', {}, i.qty == null ? '–' : fmtN(i.qty)), h('span', { class: 'sm muted' }, i.qty == null ? 'ยังไม่นับ' : i.unit))),
     h('div', { class: 'card' },
-      h('div', { class: 'sm muted' }, i.code + ' · ' + i.cat),
-      h('h2', {}, i.name), badge(i.type),
-      h('p', { class: 'big' }, 'คงเหลือ: ', i.qty == null ? 'ยังไม่นับยอดตั้งต้น' : fmtN(i.qty) + ' ' + i.unit),
-      i.type === 'ต้องขอ' && !isKeeper() ? h('p', { class: 'sm muted' }, 'ของชิ้นนี้ต้องให้ผู้ดูแลพัสดุอนุมัติก่อนรับของ') : null,
-      i.type === 'กู้ชีพ' ? h('p', { class: 'sm muted' }, 'ของกู้ชีพหยิบใช้ได้ทันที บันทึกหลังใช้ก็ได้') : null,
-      h('label', {}, 'จำนวน (' + i.unit + ')'), st.el, note, actions));
+      st.el, h('div', { class: 'unit' }, 'จำนวน (' + i.unit + ')'),
+      note,
+      i.type === 'ต้องขอ' && !isKeeper() ? h('div', { class: 'note' }, '🔒 ของชิ้นนี้ผู้ดูแลพัสดุต้องอนุมัติก่อนรับของ') : null,
+      i.type === 'กู้ชีพ' ? h('div', { class: 'note life' }, '🚑 ของกู้ชีพหยิบใช้ได้ทันที บันทึกหลังใช้ก็ได้') : null,
+      acts));
+}
+function done(i, qty, title) {
+  const ov = sheet(h('div', { class: 'success' },
+    h('div', { class: 'big-ok', html: ICON_OK }),
+    h('h2', { style: 'margin:0' }, title + ' ✨'),
+    h('p', { class: 'muted', style: 'margin:6px 0 0' }, i.name + ' · ' + fmtN(qty) + ' ' + i.unit),
+    S.clinic ? h('p', { class: 'sm', style: 'margin:4px 0 0;color:var(--pink-d)' }, S.clinic) : null,
+    h('div', { class: 'stack' },
+      h('button', { class: 'btn btn-main', onclick: () => { ov.remove(); scan(); } }, '📷 สแกนชิ้นต่อไป'),
+      h('button', { class: 'btn btn-soft', onclick: () => { ov.remove(); showHome(); } }, 'กลับหน้าแรก'))));
 }
 
 function showReceive(i) {
   const st = stepper(1);
   const emerg = h('input', { type: 'checkbox' });
   render(back(() => showItem(i.code)),
-    h('div', { class: 'card' },
-      h('h2', {}, 'รับของเข้า'), h('p', {}, i.name),
-      h('label', {}, 'จำนวนที่รับ (' + i.unit + ')'), st.el,
+    h('div', { class: 'card' }, h('h2', { style: 'margin-top:0' }, '📦 รับของเข้า'), h('p', { class: 'muted' }, i.name),
+      st.el, h('div', { class: 'unit' }, 'จำนวนที่รับ (' + i.unit + ')'),
       h('label', { class: 'check' }, emerg, 'เป็นการเบิกฉุกเฉินจากพัสดุ'),
-      actionBtn('บันทึกรับเข้า', 'primary', async () => {
+      h('div', { class: 'stack' }, act('บันทึกรับเข้า', 'btn-main', async () => {
         const d = await api('receive', { code: i.code, qty: st.input.value, emergency: emerg.checked });
-        applyBase(d); toast('บันทึกรับเข้าแล้ว'); showItem(i.code);
-      })));
+        applyBase(d); toast('บันทึกรับเข้าแล้ว 📦'); showItem(i.code);
+      }))));
 }
 
 // ---------- ยืม-คืน ----------
 function showLoanOut(i) {
   const st = stepper(1);
   const unit = unitInput('หน่วยงานที่มายืม');
-  const person = h('input', { type: 'text', placeholder: 'ชื่อคนมารับ' });
+  const person = h('input', { class: 'field', type: 'text', placeholder: 'ชื่อคนมารับ' });
   render(back(() => showItem(i.code)),
-    h('div', { class: 'card' },
-      h('h2', {}, 'ให้หน่วยงานอื่นยืม'), h('p', {}, i.name),
-      h('label', {}, 'จำนวน (' + i.unit + ')'), st.el,
-      h('label', {}, 'หน่วยงาน'), unit.el,
-      h('label', {}, 'ผู้มารับ'), person,
-      actionBtn('บันทึกให้ยืม', 'primary', async () => {
+    h('div', { class: 'card' }, h('h2', { style: 'margin-top:0' }, '🤝 ให้หน่วยงานอื่นยืม'), h('p', { class: 'muted' }, i.name),
+      st.el, h('div', { class: 'unit' }, 'จำนวน (' + i.unit + ')'),
+      h('label', { class: 'lb' }, 'หน่วยงาน'), unit.el, h('label', { class: 'lb' }, 'ผู้มารับ'), person,
+      h('div', { class: 'stack' }, act('บันทึกให้ยืม', 'btn-main', async () => {
         const d = await api('loanOut', { code: i.code, qty: st.input.value, unit: unit.input.value, person: person.value });
-        applyBase(d); toast('บันทึกแล้ว ระบบจะเตือนถ้าค้างเกินกำหนด'); showItem(i.code);
-      })));
+        applyBase(d); toast('บันทึกแล้ว ระบบจะเตือนถ้าค้างนาน'); showItem(i.code);
+      }))));
 }
-
 function showLoanIn() {
-  const sel = h('select', {}, h('option', { value: '' }, 'อุปกรณ์หรือของที่ไม่มีรหัสในระบบ'),
-    S.items.map(i => h('option', { value: i.code }, i.name)));
-  const name = h('input', { type: 'text', placeholder: 'ชื่ออุปกรณ์หรือของ' });
+  const sel = h('select', { class: 'field' }, h('option', { value: '' }, 'อุปกรณ์/ของที่ไม่มีรหัสในระบบ'), S.items.map(i => h('option', { value: i.code }, i.name)));
+  const name = h('input', { class: 'field', type: 'text', placeholder: 'ชื่ออุปกรณ์หรือของ' });
   sel.addEventListener('change', () => { name.style.display = sel.value ? 'none' : ''; });
   const st = stepper(1);
   const unit = unitInput('หน่วยงานที่ให้ยืม');
-  const person = h('input', { type: 'text', placeholder: 'ชื่อผู้ให้ยืม (ถ้ามี)' });
+  const person = h('input', { class: 'field', type: 'text', placeholder: 'ชื่อผู้ให้ยืม (ถ้ามี)' });
   render(back(showLoans),
-    h('div', { class: 'card' },
-      h('h2', {}, 'ยืมของจากหน่วยงานอื่น'),
-      h('label', {}, 'ของที่ยืม'), sel, name,
-      h('label', {}, 'จำนวน'), st.el,
-      h('label', {}, 'หน่วยงาน'), unit.el,
-      h('label', {}, 'ผู้ให้ยืม'), person,
-      actionBtn('บันทึกการยืม', 'primary', async () => {
+    h('div', { class: 'card' }, h('h2', { style: 'margin-top:0' }, '📥 ยืมของจากหน่วยงานอื่น'),
+      h('label', { class: 'lb' }, 'ของที่ยืม'), sel, name, st.el, h('div', { class: 'unit' }, 'จำนวน'),
+      h('label', { class: 'lb' }, 'หน่วยงาน'), unit.el, h('label', { class: 'lb' }, 'ผู้ให้ยืม'), person,
+      h('div', { class: 'stack' }, act('บันทึกการยืม', 'btn-main', async () => {
         const d = await api('loanIn', { code: sel.value, name: name.value, qty: st.input.value, unit: unit.input.value, person: person.value });
         applyBase(d); toast('บันทึกการยืมแล้ว'); showLoans();
-      })));
+      }))));
 }
-
 async function showLoans() {
-  render(back(), h('p', { class: 'muted' }, 'กำลังโหลด...'));
+  loading();
   try {
-    const d = await api('loans');
-    applyBase(d.base);
-    const card = l => h('div', { class: 'card' },
-      h('div', { class: 'sm muted' }, l.dir + ' · ' + l.date + ' · ' + l.days + ' วัน'),
-      h('div', { class: 'nm' }, l.name + ' ' + fmtN(l.qty)),
-      h('div', {}, (l.dir === 'ให้ยืมออก' ? 'ให้ ' : 'ยืมจาก ') + l.unit + (l.person ? ' (' + l.person + ')' : '')),
-      l.days > d.limit ? h('div', { class: 'bad sm' }, 'ค้างเกินกำหนด ' + d.limit + ' วัน') : null,
-      h('div', { class: 'actions' }, actionBtn(l.dir === 'ให้ยืมออก' ? 'ได้ของคืนแล้ว' : 'คืนของแล้ว', 'okb', async () => {
-        const r = await api('loanReturn', { id: l.id });
-        applyBase(r.base); toast('บันทึกการคืนแล้ว'); showLoans();
+    const d = await api('loans'); applyBase(d.base);
+    const card = l => h('div', { class: 'card', style: 'padding:14px 16px' },
+      h('div', { style: 'display:flex;justify-content:space-between;gap:8px' },
+        h('div', {}, h('div', { style: 'font-weight:500' }, l.name + ' × ' + fmtN(l.qty)),
+          h('div', { class: 'sm muted' }, (l.dir === 'ให้ยืมออก' ? 'ให้ ' : 'ยืมจาก ') + l.unit + (l.person ? ' · ' + l.person : ''))),
+        h('span', { class: 'tag ' + (l.days > d.limit ? 't-life' : 't-open'), style: 'align-self:flex-start' }, l.days + ' วัน')),
+      h('div', { class: 'stack', style: 'margin-top:12px' }, act(l.dir === 'ให้ยืมออก' ? 'ได้ของคืนแล้ว' : 'คืนของแล้ว', 'btn-ok', async () => {
+        const r = await api('loanReturn', { id: l.id }); applyBase(r.base); toast('บันทึกการคืนแล้ว 💚'); showLoans();
       })));
-    const out = d.list.filter(l => l.dir === 'ให้ยืมออก');
-    const inn = d.list.filter(l => l.dir !== 'ให้ยืมออก');
-    render(back(),
-      h('div', { class: 'actions' }, h('button', { class: 'primary', onclick: showLoanIn }, '+ ยืมของจากหน่วยงานอื่น')),
-      h('p', { class: 'sm muted' }, 'ถ้าจะให้หน่วยงานอื่นยืม ให้เปิดหน้าของชิ้นนั้นแล้วกด "ให้หน่วยงานอื่นยืม"'),
-      h('h3', {}, 'ของเราที่ให้ยืมไป (' + out.length + ')'), out.length ? out.map(card) : h('p', { class: 'muted' }, 'ไม่มี'),
-      h('h3', {}, 'ของที่เรายืมมา (' + inn.length + ')'), inn.length ? inn.map(card) : h('p', { class: 'muted' }, 'ไม่มี'));
-  } catch (e) { toast(e.message, true); }
+    const out = d.list.filter(l => l.dir === 'ให้ยืมออก'), inn = d.list.filter(l => l.dir !== 'ให้ยืมออก');
+    render(back(), h('h2', {}, '🤝 ยืม-คืน'),
+      h('button', { class: 'btn btn-main', onclick: showLoanIn }, '+ ยืมของจากหน่วยงานอื่น'),
+      h('p', { class: 'sm muted' }, 'ถ้าจะให้หน่วยงานอื่นยืม เปิดหน้าของชิ้นนั้นแล้วกด "ให้ยืม"'),
+      h('h3', {}, 'ของเราที่ให้ยืมไป (' + out.length + ')'), out.length ? out.map(card) : h('p', { class: 'muted sm' }, 'ไม่มีรายการค้าง'),
+      h('h3', {}, 'ของที่เรายืมมา (' + inn.length + ')'), inn.length ? inn.map(card) : h('p', { class: 'muted sm' }, 'ไม่มีรายการค้าง'));
+  } catch (e) { toast(e.message, true); showHome(); }
 }
 
 // ---------- คำขอรออนุมัติ ----------
 function drawPending(list) {
   const card = r => {
-    const reason = h('input', { type: 'text', placeholder: 'เหตุผล (ถ้าไม่อนุมัติ)' });
+    const reason = h('input', { class: 'field', type: 'text', placeholder: 'เหตุผล (ถ้าไม่อนุมัติ)' });
     const decide = async approve => {
       const d = await api('decide', { id: r.id, approve, note: reason.value });
-      applyBase(d.base); toast(approve ? 'อนุมัติและบันทึกจ่ายแล้ว' : 'บันทึกไม่อนุมัติแล้ว'); drawPending(d.list);
+      applyBase(d.base); toast(approve ? 'อนุมัติและบันทึกจ่ายแล้ว ✅' : 'บันทึกไม่อนุมัติแล้ว'); drawPending(d.list);
     };
     return h('div', { class: 'card' },
-      h('div', { class: 'sm muted' }, r.id + ' · ' + r.time),
-      h('div', { class: 'nm' }, r.name),
-      h('div', {}, r.requester + ' ขอ ' + fmtN(r.qty) + ' ' + r.unit),
-      h('div', { class: 'sm muted' }, 'คงเหลือ: ' + (r.stock == null ? 'ยังไม่นับ' : fmtN(r.stock) + ' ' + r.unit)),
-      r.note ? h('div', { class: 'sm' }, 'หมายเหตุ: ' + r.note) : null,
-      reason,
-      h('div', { class: 'menu' },
-        actionBtn('อนุมัติและจ่าย', 'okb', () => decide(true)),
-        actionBtn('ไม่อนุมัติ', 'badb', () => decide(false))));
+      h('div', { class: 'sm muted' }, r.time + (r.clinic ? ' · ' + r.clinic : '')),
+      h('div', { style: 'font-weight:600;font-size:17px;margin:4px 0' }, r.name),
+      h('div', {}, r.requester + ' ขอ ', h('b', {}, fmtN(r.qty) + ' ' + r.unit)),
+      h('div', { class: 'sm muted' }, 'คงเหลือ ' + (r.stock == null ? 'ยังไม่นับ' : fmtN(r.stock) + ' ' + r.unit)),
+      r.note ? h('div', { class: 'note' }, r.note) : null,
+      reason, h('div', { class: 'row2' }, act('อนุมัติ', 'btn-ok', () => decide(true)), act('ไม่อนุมัติ', 'btn-line', () => decide(false))));
   };
-  render(back(), h('h2', {}, 'คำขอรออนุมัติ'),
-    list.length ? list.map(card) : h('p', { class: 'muted' }, 'ไม่มีคำขอค้าง'));
+  render(back(), h('h2', {}, '📨 คำขอรออนุมัติ'), list.length ? list.map(card) : h('div', { class: 'card', style: 'text-align:center' }, h('div', { style: 'font-size:40px' }, '🌷'), h('p', { class: 'muted' }, 'ไม่มีคำขอค้าง')));
 }
 async function showPending() {
-  render(back(), h('p', { class: 'muted' }, 'กำลังโหลด...'));
-  try { const d = await api('pending'); applyBase(d.base); drawPending(d.list); }
-  catch (e) { toast(e.message, true); }
+  loading();
+  try { const d = await api('pending'); applyBase(d.base); drawPending(d.list); } catch (e) { toast(e.message, true); showHome(); }
 }
 
 // ---------- นับสต๊อก ----------
 async function showCount() {
-  render(back(), h('p', { class: 'muted' }, 'กำลังโหลด...'));
+  loading();
   let data;
-  try { data = await api('countList'); applyBase(data.base); } catch (e) { return toast(e.message, true); }
+  try { data = await api('countList'); applyBase(data.base); } catch (e) { toast(e.message, true); return showHome(); }
   const counted = data.counted;
   let partner = '';
-  try { partner = sessionStorage.getItem(PARTNER_KEY) || ''; } catch (_) {}
-  const partnerSel = h('select', {}, h('option', { value: '' }, '— เลือกผู้นับคนที่ 2 —'),
-    S.staff.filter(n => n !== S.me.name).map(n => h('option', { value: n, selected: n === partner }, n)));
-  partnerSel.addEventListener('change', () => { try { sessionStorage.setItem(PARTNER_KEY, partnerSel.value); } catch (_) {} });
+  try { partner = sessionStorage.getItem(KEY_PARTNER) || ''; } catch (_) {}
+  const pSel = h('select', { class: 'field' }, h('option', { value: '' }, '— เลือกผู้นับคนที่ 2 —'), S.staff.filter(n => n !== S.me.name).map(n => h('option', { value: n, selected: n === partner }, n)));
+  pSel.addEventListener('change', () => { try { sessionStorage.setItem(KEY_PARTNER, pSel.value); } catch (_) {} });
   const q = h('input', { type: 'search', placeholder: 'ค้นหา' });
-  const onlyLeft = h('input', { type: 'checkbox' });
-  const progress = h('p', { class: 'sm muted' });
+  const left = h('input', { type: 'checkbox' });
+  const bar = h('i'), txt = h('div', { class: 'sm muted' });
   const list = h('div', { class: 'list' });
   const row = i => {
-    const done = counted[i.code] !== undefined;
-    const inp = h('input', { type: 'number', inputmode: 'decimal', min: '0', step: 'any', value: done ? String(counted[i.code]) : '' });
-    const el = h('div', { class: 'countrow' + (done ? ' done' : '') },
-      h('div', {}, h('div', { class: 'nm sm' }, i.name),
-        h('div', { class: 'sm muted' }, 'ในระบบ: ' + (i.qty == null ? 'ยังไม่มียอดตั้งต้น' : fmtN(i.qty)) + ' ' + i.unit)),
-      inp,
-      actionBtn(done ? 'แก้' : 'บันทึก', 'primary', async () => {
-        if (!partnerSel.value) throw new Error('เลือกผู้นับคนที่ 2 ก่อน');
-        const d = await api('count', { code: i.code, counted: inp.value, partner: partnerSel.value });
-        applyBase(d.base); Object.assign(counted, d.counted);
-        toast('บันทึก ' + i.name + ' แล้ว'); draw();
+    const ok = counted[i.code] !== undefined;
+    const inp = h('input', { type: 'number', inputmode: 'decimal', min: '0', step: 'any', value: ok ? String(counted[i.code]) : '' });
+    return h('div', { class: 'crow' + (ok ? ' done' : '') },
+      h('div', { style: 'min-width:0' }, h('div', { style: 'font-size:14px;font-weight:500;line-height:1.3' }, i.name),
+        h('div', { class: 'sm muted' }, 'ในระบบ ' + (i.qty == null ? '–' : fmtN(i.qty)) + ' ' + i.unit)),
+      inp, act(ok ? 'แก้' : 'บันทึก', ok ? 'btn-soft' : 'btn-main', async () => {
+        if (!pSel.value) throw new Error('เลือกผู้นับคนที่ 2 ก่อน');
+        const d = await api('count', { code: i.code, counted: inp.value, partner: pSel.value });
+        applyBase(d.base); Object.assign(counted, d.counted); toast('บันทึก ' + i.name + ' แล้ว'); draw();
       }));
-    return el;
   };
   const draw = () => {
     const t = q.value.trim().toLowerCase();
-    const rows = S.items.filter(i => (!t || i.name.toLowerCase().includes(t) || i.code.includes(t)) &&
-      (!onlyLeft.checked || counted[i.code] === undefined));
-    progress.textContent = 'นับแล้ว ' + Object.keys(counted).length + ' จาก ' + S.items.length + ' รายการ';
-    list.replaceChildren(...rows.map(row));
+    const n = Object.keys(counted).length;
+    bar.style.width = Math.round(n / Math.max(1, S.items.length) * 100) + '%';
+    txt.textContent = 'นับแล้ว ' + n + ' จาก ' + S.items.length + ' รายการ';
+    list.replaceChildren(...S.items.filter(i => (!t || i.name.toLowerCase().includes(t) || i.code.includes(t)) && (!left.checked || counted[i.code] === undefined)).map(row));
   };
-  q.addEventListener('input', draw);
-  onlyLeft.addEventListener('change', draw);
+  q.addEventListener('input', draw); left.addEventListener('change', draw);
   render(back(),
-    h('div', { class: 'card' },
-      h('h2', {}, 'นับสต๊อก'),
-      h('p', { class: 'sm muted' }, 'กรอกจำนวนที่เห็นจริงบนชั้น ถ้ารายการนั้นยังไม่มียอดตั้งต้น ตัวเลขที่บันทึกจะเป็นยอดตั้งต้น ถ้ามีแล้ว ระบบจะปรับยอดตามส่วนต่างให้เอง'),
-      h('label', {}, 'นับร่วมกับ'), partnerSel),
-    q, h('label', { class: 'check' }, onlyLeft, 'แสดงเฉพาะที่ยังไม่นับ'), progress, list);
+    h('div', { class: 'card' }, h('h2', { style: 'margin-top:0' }, '📋 นับสต๊อก'),
+      h('p', { class: 'sm muted' }, 'กรอกจำนวนที่เห็นจริงบนชั้น รายการที่ยังไม่มียอดตั้งต้น ตัวเลขนี้จะเป็นยอดตั้งต้น รายการที่มีแล้ว ระบบปรับส่วนต่างให้เอง'),
+      h('label', { class: 'lb' }, 'นับร่วมกับ'), pSel, h('div', { class: 'progress' }, bar), txt),
+    h('div', { class: 'search', html: ICON_SEARCH }, q),
+    h('label', { class: 'check' }, left, 'แสดงเฉพาะที่ยังไม่นับ'), list);
   draw();
 }
 
