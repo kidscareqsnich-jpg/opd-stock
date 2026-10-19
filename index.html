@@ -394,13 +394,18 @@ function showHome() {
 async function scan() {
   try {
     if (!(await needClinic()) && S.clinics.length) return;
-    if (!liff.scanCodeV2) throw new Error('ใช้กล้องมือถือสแกนป้าย QR ได้เลย');
-    const r = await liff.scanCodeV2();
-    if (!r || !r.value) return;
-    let code = r.value;
-    try { code = new URL(r.value).searchParams.get('item') || r.value; } catch (_) {}
-    showItem(code.trim());
+    const code = await scanCode();
+    if (code) showItem(code);
   } catch (e) { toast(e.message, true); }
+}
+// เปิดกล้อง LINE แล้วคืนรหัสพัสดุจากป้าย QR
+async function scanCode() {
+  if (!liff.scanCodeV2) throw new Error('เปิดระบบจากเมนูใน LINE เพื่อใช้กล้องสแกน');
+  const r = await liff.scanCodeV2();
+  if (!r || !r.value) return '';
+  let code = r.value;
+  try { code = new URL(r.value).searchParams.get('item') || r.value; } catch (_) {}
+  return code.trim();
 }
 
 // ---------- หน้ารายการของ ----------
@@ -576,17 +581,43 @@ async function showCount() {
   const left = h('input', { type: 'checkbox' });
   const bar = h('i'), txt = h('div', { class: 'sm muted' });
   const list = h('div', { class: 'list' });
+  const save = async (i, value) => {
+    if (!pSel.value) throw new Error('เลือกผู้นับคนที่ 2 ก่อน');
+    if (String(value).trim() === '') throw new Error('กรอกจำนวนที่นับได้');
+    const d = await api('count', { code: i.code, counted: value, partner: pSel.value });
+    applyBase(d.base); Object.assign(counted, d.counted); toast('บันทึก ' + i.name + ' แล้ว ✓'); draw();
+  };
   const row = i => {
     const ok = counted[i.code] !== undefined;
     const inp = h('input', { type: 'number', inputmode: 'decimal', min: '0', step: 'any', value: ok ? String(counted[i.code]) : '' });
     return h('div', { class: 'crow' + (ok ? ' done' : '') },
       h('div', { style: 'min-width:0' }, h('div', { style: 'font-size:14px;font-weight:500;line-height:1.3' }, i.name),
         h('div', { class: 'sm muted' }, 'ในระบบ ' + (i.qty == null ? '–' : fmtN(i.qty)) + ' ' + i.unit)),
-      inp, act(ok ? 'แก้' : 'บันทึก', ok ? 'btn-soft' : 'btn-main', async () => {
-        if (!pSel.value) throw new Error('เลือกผู้นับคนที่ 2 ก่อน');
-        const d = await api('count', { code: i.code, counted: inp.value, partner: pSel.value });
-        applyBase(d.base); Object.assign(counted, d.counted); toast('บันทึก ' + i.name + ' แล้ว'); draw();
-      }));
+      inp, act(ok ? 'แก้' : 'บันทึก', ok ? 'btn-soft' : 'btn-main', () => save(i, inp.value)));
+  };
+  // สแกนป้าย QR แล้วกรอกจำนวน (ใช้คู่กับการเลื่อนหาในรายการได้)
+  const scanCount = async () => {
+    try {
+      if (!pSel.value) throw new Error('เลือกผู้นับคนที่ 2 ก่อน');
+      const code = await scanCode();
+      if (!code) return;
+      const i = S.items.find(x => x.code === code);
+      if (!i) throw new Error('ไม่พบรหัส ' + code);
+      const was = counted[i.code];
+      const inp = h('input', { class: 'field', type: 'number', inputmode: 'decimal', min: '0', step: 'any',
+        placeholder: 'จำนวนที่นับได้', style: 'font-size:28px;text-align:center;font-weight:600', value: was === undefined ? '' : String(was) });
+      const ov = sheet(
+        h('div', { style: 'width:58px;height:58px;margin:0 auto;border-radius:18px;display:grid;place-items:center;font-size:30px;background:' + (CAT_BG[i.cat] || '#e8f2ff') }, CAT_EMOJI[i.cat] || '📦'),
+        h('h2', { style: 'margin:10px 0 2px;text-align:center' }, i.name),
+        h('p', { class: 'sm muted', style: 'text-align:center;margin:0 0 12px' },
+          i.code + ' · ในระบบ ' + (i.qty == null ? '–' : fmtN(i.qty)) + ' ' + i.unit +
+          (was === undefined ? '' : ' · นับไปแล้ว ' + fmtN(was))),
+        inp, h('div', { class: 'unit' }, 'จำนวนที่เห็นจริง (' + i.unit + ')'),
+        h('div', { class: 'stack' },
+          act('บันทึกแล้วสแกนต่อ 📷', 'btn-main', async () => { await save(i, inp.value); ov.remove(); scanCount(); }),
+          act('บันทึก', 'btn-soft', async () => { await save(i, inp.value); ov.remove(); })));
+      setTimeout(() => inp.focus(), 250);
+    } catch (e) { toast(e.message, true); }
   };
   const draw = () => {
     const t = q.value.trim().toLowerCase();
@@ -600,6 +631,9 @@ async function showCount() {
     h('div', { class: 'card' }, h('h2', { style: 'margin-top:0' }, '📋 นับสต๊อก'),
       h('p', { class: 'sm muted' }, 'กรอกจำนวนที่เห็นจริงบนชั้น รายการที่ยังไม่มียอดตั้งต้น ตัวเลขนี้จะเป็นยอดตั้งต้น รายการที่มีแล้ว ระบบปรับส่วนต่างให้เอง'),
       h('label', { class: 'lb' }, 'นับร่วมกับ'), pSel, h('div', { class: 'progress' }, bar), txt),
+    h('button', { class: 'scan-hero', onclick: scanCount },
+      h('div', { class: 'ico', html: ICON_SCAN }),
+      h('div', {}, h('b', {}, 'สแกนป้ายแล้วใส่จำนวน'), h('span', {}, 'หรือเลื่อนหา/ค้นหาในรายการด้านล่างก็ได้'))),
     h('div', { class: 'search', html: ICON_SEARCH }, q),
     h('label', { class: 'check' }, left, 'แสดงเฉพาะที่ยังไม่นับ'), list);
   draw();
