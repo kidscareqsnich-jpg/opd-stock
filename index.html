@@ -169,6 +169,7 @@ const S = { me: null, items: [], pending: 0, staff: [], units: [], clinics: [], 
 const $app = document.getElementById('app');
 const KEY_CLINIC = 'opd-clinic';
 const KEY_PARTNER = 'opd-count-partner';
+const KEY_BASE = 'opd-base';
 
 // ---------- ตัวช่วย ----------
 function h(tag, props, ...kids) {
@@ -183,12 +184,12 @@ function h(tag, props, ...kids) {
   kids.flat().forEach(c => { if (c != null && c !== false) el.append(c.nodeType ? c : document.createTextNode(String(c))); });
   return el;
 }
-function render(...nodes) { $app.replaceChildren(...nodes.filter(Boolean)); window.scrollTo(0, 0); }
+function render(...nodes) { S.view = ''; $app.replaceChildren(...nodes.filter(Boolean)); window.scrollTo(0, 0); }
 function loading(msg) { render(h('div', { class: 'loading' }, h('div', { class: 'blob' }), msg || 'กำลังโหลด...')); }
-function toast(msg, bad) {
+function toast(msg, bad, ms) {
   const t = document.getElementById('toast');
   t.textContent = msg; t.className = 'show' + (bad ? ' bad' : '');
-  clearTimeout(toast.t); toast.t = setTimeout(() => { t.className = ''; }, 2600);
+  clearTimeout(toast.t); toast.t = setTimeout(() => { t.className = ''; }, ms || 2600);
 }
 function fmtN(n) { return Number(n).toLocaleString('th-TH', { maximumFractionDigits: 2 }); }
 function isKeeper() { return S.me && S.me.keeper; }
@@ -236,13 +237,14 @@ function sheet(...kids) {
 
 // ---------- หลังบ้าน ----------
 async function api(action, data) {
-  const res = await fetch(CONFIG.API_URL, { method: 'POST', body: JSON.stringify(Object.assign({ action, idToken: S.idToken }, data || {})) });
+  const res = await fetch(CONFIG.API_URL, { method: 'POST', keepalive: true, body: JSON.stringify(Object.assign({ action, idToken: S.idToken }, data || {})) });
   const j = await res.json();
   if (!j.ok) throw new Error(j.error);
   return j.data;
 }
 function applyBase(d) {
   S.me = d.me; S.items = d.items; S.pending = d.pending; S.staff = d.staffNames; S.units = d.units || []; S.clinics = d.clinics || [];
+  if (S.me && S.sub) store(KEY_BASE, JSON.stringify({ sub: S.sub, d }));
   if (S.me) {
     const first = S.me.name.split(' ')[0];
     document.getElementById('hello').replaceChildren(h('span', {}, 'พัสดุ OPD · ' + S.me.role), h('b', { class: 'brand' }, 'สวัสดี ' + first + ' 🌸'));
@@ -294,12 +296,23 @@ async function main() {
     await liff.init({ liffId: CONFIG.LIFF_ID });
     if (!liff.isLoggedIn()) { liff.login({ redirectUri: location.href }); return; }
     S.idToken = liff.getIDToken();
-    const d = await api('init');
+    try { S.sub = (liff.getDecodedIDToken() || {}).sub || ''; } catch (_) {}
+    const fresh = api('init');
+    // เปิดเร็ว: ใช้ข้อมูลครั้งก่อนแสดงทันที แล้วค่อยอัปเดตตัวเลขล่าสุดตามมา
+    let cached = null;
+    try { const c = JSON.parse(load(KEY_BASE) || 'null'); if (c && S.sub && c.sub === S.sub && c.d && c.d.me) cached = c.d; } catch (_) {}
+    if (cached) {
+      startApp(cached);
+      fresh.then(d => {
+        if (!d.me) { store(KEY_BASE, null); return showRegister(d); }
+        applyBase(d);
+        if (S.view === 'home' && S.redraw) S.redraw();
+      }).catch(() => {});
+      return;
+    }
+    const d = await fresh;
     if (!d.me) return showRegister(d);
-    applyBase(d); restoreClinic(); drawChip();
-    const c = codeFromUrl();
-    c ? showItem(c) : showHome();
-    if (!S.clinic && S.clinics.length) pickClinic();
+    startApp(d);
   } catch (e) {
     render(h('div', { class: 'card', style: 'text-align:center' },
       h('div', { style: 'font-size:42px' }, '😿'),
@@ -307,6 +320,13 @@ async function main() {
       h('p', { class: 'muted' }, e.message),
       h('p', { class: 'sm muted' }, 'ลองปิดหน้านี้แล้วเปิดใหม่จากเมนูใน LINE')));
   }
+}
+
+function startApp(d) {
+  applyBase(d); restoreClinic(); drawChip();
+  const c = codeFromUrl();
+  c ? showItem(c) : showHome();
+  if (!S.clinic && S.clinics.length) pickClinic();
 }
 
 function showRegister(d) {
@@ -368,6 +388,7 @@ function showHome() {
       h('div', { class: 'ti', style: 'background:' + x.bg }, x.e), x.t))),
     h('div', { class: 'search', html: ICON_SEARCH }, q), chips, list);
   draw();
+  S.view = 'home'; S.redraw = draw;
 }
 async function scan() {
   try {
@@ -387,10 +408,24 @@ function showItem(code) {
   if (!i) { toast('ไม่พบรหัส ' + code, true); return showHome(); }
   const st = stepper(1);
   const note = h('input', { class: 'field', type: 'text', placeholder: 'หมายเหตุ (ถ้ามี)' });
+  // แสดงผลทันที แล้วบันทึกเบื้องหลัง ถ้าไม่สำเร็จจะคืนยอดและแจ้งเตือน
   const go = async (action, title) => {
     const clinic = await needClinic();
-    const d = await api(action, { code: i.code, qty: st.input.value, note: note.value, clinic });
-    applyBase(d); done(i, Number(st.input.value), title);
+    if (S.clinics.length && !clinic) return;
+    const qty = Number(st.input.value);
+    if (!(qty > 0)) throw new Error('กรุณาใส่จำนวนให้ถูกต้อง');
+    const before = i.qty;
+    if (action === 'withdraw' && i.qty != null) i.qty = i.qty - qty;
+    const status = done(i, qty, title);
+    try {
+      const d = await api(action, { code: i.code, qty, note: note.value, clinic });
+      if (d && d.items) applyBase(d);
+      else if (d && d.item) { const x = S.items.find(y => y.code === d.item.code); if (x) x.qty = d.item.qty; }
+      status.ok();
+    } catch (e) {
+      i.qty = before;
+      status.fail(e.message);
+    }
   };
   const acts = h('div', { class: 'stack' });
   if (i.type === 'หยิบได้เลย') acts.append(act('เบิก', 'btn-main', () => go('withdraw', 'เบิกเรียบร้อย')));
@@ -419,14 +454,24 @@ function showItem(code) {
       acts));
 }
 function done(i, qty, title) {
+  const line = h('p', { class: 'sm muted', style: 'margin:6px 0 0' }, '⏳ กำลังบันทึกในระบบ...');
   const ov = sheet(h('div', { class: 'success' },
     h('div', { class: 'big-ok', html: ICON_OK }),
     h('h2', { style: 'margin:0' }, title + ' ✨'),
     h('p', { class: 'muted', style: 'margin:6px 0 0' }, i.name + ' · ' + fmtN(qty) + ' ' + i.unit),
     S.clinic ? h('p', { class: 'sm', style: 'margin:4px 0 0;color:var(--pink-d)' }, S.clinic) : null,
+    line,
     h('div', { class: 'stack' },
       h('button', { class: 'btn btn-main', onclick: () => { ov.remove(); scan(); } }, '📷 สแกนชิ้นต่อไป'),
       h('button', { class: 'btn btn-soft', onclick: () => { ov.remove(); showHome(); } }, 'กลับหน้าแรก'))));
+  return {
+    ok() { line.textContent = '✓ บันทึกในระบบแล้ว'; line.style.color = '#3dbb8a'; if (S.view === 'home' && S.redraw) S.redraw(); },
+    fail(msg) {
+      const text = '⚠️ ' + i.name + ' บันทึกไม่สำเร็จ: ' + msg + ' กรุณาลองใหม่';
+      if (ov.isConnected) { ov.remove(); showItem(i.code); }
+      toast(text, true, 6000);
+    }
+  };
 }
 
 function showReceive(i) {
