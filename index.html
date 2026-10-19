@@ -310,22 +310,29 @@ async function main() {
 }
 
 function showRegister(d) {
-  const sel = h('select', { class: 'field' }, h('option', { value: '' }, '— เลือกชื่อของคุณ —'), d.unclaimed.map(s => h('option', { value: s.row }, s.name)));
-  const code = h('input', { class: 'field', type: 'tel', placeholder: 'รหัสลงทะเบียน (ถามหัวหน้า)', maxlength: '12' });
+  const code = h('input', { class: 'field', type: 'tel', inputmode: 'numeric', placeholder: 'รหัสลงทะเบียน (ถามหัวหน้า)', maxlength: '12' });
+  const step2 = h('div', { style: 'text-align:left' });
+  const go = act('ถัดไป', 'btn-main', async () => {
+    const r = await api('unclaimed', { code: code.value });
+    if (!r.list.length) throw new Error('ไม่มีชื่อที่ว่าง กรุณาแจ้งแอดมินให้เพิ่มชื่อ');
+    code.disabled = true; go.remove();
+    const sel = h('select', { class: 'field' }, h('option', { value: '' }, '— เลือกชื่อของคุณ —'), r.list.map(s => h('option', { value: s.row }, s.name)));
+    step2.replaceChildren(h('label', { class: 'lb' }, 'ชื่อของคุณ'), sel,
+      h('div', { class: 'stack' }, act('ลงทะเบียน', 'btn-main', async () => {
+        if (!sel.value) throw new Error('กรุณาเลือกชื่อ');
+        const res = await api('register', { row: sel.value, code: code.value });
+        applyBase(res); toast('ลงทะเบียนเรียบร้อย 🎉');
+        const c = codeFromUrl(); c ? showItem(c) : showHome();
+        if (S.clinics.length) pickClinic();
+      })));
+  });
   render(h('div', { class: 'card', style: 'text-align:center' },
     h('div', { style: 'font-size:46px' }, '🐰'),
     h('h2', {}, 'ยินดีต้อนรับ!'),
     h('p', { class: 'muted sm' }, 'ลงทะเบียนครั้งเดียว ครั้งต่อไประบบจำคุณได้เลย'),
     h('p', { class: 'sm' }, 'บัญชี LINE: ' + (d.lineName || '-')),
-    h('div', { style: 'text-align:left' }, sel, code),
-    h('div', { class: 'stack' }, act('ลงทะเบียน', 'btn-main', async () => {
-      if (!sel.value) throw new Error('กรุณาเลือกชื่อ');
-      const r = await api('register', { row: sel.value, code: code.value });
-      applyBase(r); toast('ลงทะเบียนเรียบร้อย 🎉');
-      const c = codeFromUrl(); c ? showItem(c) : showHome();
-      if (S.clinics.length) pickClinic();
-    })),
-    d.unclaimed.length ? null : h('p', { class: 'sm', style: 'color:var(--bad)' }, 'ไม่มีชื่อที่ว่าง กรุณาแจ้งแอดมิน')));
+    h('div', { style: 'text-align:left' }, code),
+    h('div', { class: 'stack' }, go), step2));
 }
 
 // ---------- หน้าแรก ----------
