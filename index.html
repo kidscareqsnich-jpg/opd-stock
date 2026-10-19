@@ -243,6 +243,7 @@ async function api(action, data) {
   return j.data;
 }
 function applyBase(d) {
+  if (!d || !Array.isArray(d.items)) return;
   S.me = d.me; S.items = d.items; S.pending = d.pending; S.staff = d.staffNames; S.units = d.units || []; S.clinics = d.clinics || [];
   if (S.me && S.sub) store(KEY_BASE, JSON.stringify({ sub: S.sub, d }));
   if (S.me) {
