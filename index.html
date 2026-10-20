@@ -841,15 +841,48 @@ async function showHistory() {
 }
 
 // ---------- สรุปรายเดือน ----------
-async function showSummary(month, tab) {
+// p = { month: 'yyyy-MM' } หรือ { from: 'yyyy-MM-dd', to: 'yyyy-MM-dd' } (ไม่ส่ง = เดือนนี้)
+async function showSummary(p, tab) {
+  if (typeof p === 'string') p = { month: p };
+  p = p || {};
   loading('กำลังสรุปข้อมูล...');
   let d;
-  try { d = await api('summary', { month: month || '' }); } catch (e) { toast(e.message, true); return showHome(); }
+  try { d = await api('summary', { month: p.month || '', from: p.from || '', to: p.to || '' }); } catch (e) { toast(e.message, true); return showHome(); }
   S.sumTab = tab || S.sumTab || 'use';
   const shortC = c => c.replace('คลินิก', '');
-  const monthSel = h('select', { class: 'field' }, (d.months.length ? d.months : [{ key: d.month, label: d.label }])
-    .map(m => h('option', { value: m.key, selected: m.key === d.month }, m.label)));
-  monthSel.addEventListener('change', () => showSummary(monthSel.value));
+  const isMonth = d.mode === 'month';
+  // ตัวเลือกช่วงเวลา
+  const ymd = x => x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0');
+  const now = new Date(), todayS = ymd(now);
+  const fyStart = new Date(now.getMonth() >= 9 ? now.getFullYear() : now.getFullYear() - 1, 9, 1);
+  const presets = [
+    ['r3', '3 เดือนล่าสุด', { from: ymd(new Date(now.getFullYear(), now.getMonth() - 2, 1)), to: todayS }],
+    ['r6', '6 เดือนล่าสุด', { from: ymd(new Date(now.getFullYear(), now.getMonth() - 5, 1)), to: todayS }],
+    ['fy', 'ปีงบประมาณ ' + (fyStart.getFullYear() + 544), { from: ymd(fyStart), to: todayS }]
+  ];
+  const cur = isMonth ? 'm:' + d.month : (presets.find(x => x[2].from === d.from && x[2].to === d.to) || ['custom'])[0];
+  const months = d.months.length ? d.months : [{ key: d.month, label: d.label }];
+  const monthSel = h('select', { class: 'field' },
+    h('optgroup', { label: 'รายเดือน' }, months.map(m => h('option', { value: 'm:' + m.key, selected: cur === 'm:' + m.key }, m.label))),
+    h('optgroup', { label: 'ช่วงเวลา' }, presets.map(x => h('option', { value: x[0], selected: cur === x[0] }, x[1])),
+      h('option', { value: 'custom', selected: cur === 'custom' }, 'เลือกช่วงวันที่เอง…')));
+  const fromIn = h('input', { class: 'field', type: 'date', value: d.from, style: 'min-width:0;padding-left:10px;padding-right:6px' }), toIn = h('input', { class: 'field', type: 'date', value: d.to, max: todayS, style: 'min-width:0;padding-left:10px;padding-right:6px' });
+  const custom = h('div', { class: 'card', style: 'padding:12px 14px;margin:8px 0 0' + (cur === 'custom' ? '' : ';display:none') },
+    h('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:8px' },
+      h('div', { style: 'min-width:0' }, h('label', { class: 'lb', style: 'margin-top:0' }, 'ตั้งแต่'), fromIn),
+      h('div', { style: 'min-width:0' }, h('label', { class: 'lb', style: 'margin-top:0' }, 'ถึง'), toIn)),
+    h('div', { class: 'stack', style: 'margin-top:10px' }, h('button', { class: 'btn btn-main', onclick: () => {
+      if (!fromIn.value || !toIn.value) return toast('เลือกวันที่ให้ครบ', true);
+      showSummary({ from: fromIn.value, to: toIn.value });
+    } }, 'ดูสรุปช่วงนี้')));
+  monthSel.addEventListener('change', () => {
+    const v = monthSel.value;
+    if (v === 'custom') { custom.style.display = ''; return; }
+    if (v.startsWith('m:')) return showSummary({ month: v.slice(2) });
+    showSummary(presets.find(x => x[0] === v)[2]);
+  });
+  const P = isMonth ? { month: d.month } : { from: d.from, to: d.to };
+  const prevWord = isMonth ? 'เดือนก่อน' : 'ช่วงก่อน';
   const body = h('div', { class: 'list' });
   const empty = t => h('p', { class: 'muted', style: 'text-align:center' }, t);
   const tabs = [['use', '📦 ยอดใช้'], ['restock', '🛒 ควรเบิก'], ['people', '🙋 ใครเบิก'], ['count', '📋 ผลนับ']];
@@ -866,9 +899,9 @@ async function showSummary(month, tab) {
           h('div', { style: 'min-width:0' }, h('div', { class: 'nm' }, u.name), h('div', { class: 'sm muted' }, by.join(' · ') || '-')),
           h('div', { class: 'r' }, h('b', {}, fmtN(u.qty) + ' ' + u.unit),
             h('span', { class: 'sm ' + (diff > 0 ? 'up' : diff < 0 ? 'down' : 'muted') },
-              'เดือนก่อน ' + fmtN(u.prev) + (diff > 0 ? ' ▲' : diff < 0 ? ' ▼' : ''))));
+              prevWord + ' ' + fmtN(u.prev) + (diff > 0 ? ' ▲' : diff < 0 ? ' ▼' : ''))));
       });
-      if (!rows.length) rows = [empty('ยังไม่มีการเบิกในเดือนนี้')];
+      if (!rows.length) rows = [empty(isMonth ? 'ยังไม่มีการเบิกในเดือนนี้' : 'ไม่มีการเบิกในช่วงนี้')];
     }
     if (S.sumTab === 'restock') {
       const need = d.restock.filter(r => r.suggest > 0), zero = d.restock.filter(r => r.suggest <= 0);
@@ -886,7 +919,7 @@ async function showSummary(month, tab) {
       rows = d.people.map(p => h('div', { class: 'card', style: 'padding:14px 16px;margin:0' },
         h('div', { style: 'display:flex;justify-content:space-between' }, h('b', {}, p.name), h('span', { class: 'sm muted' }, p.times + ' ครั้ง')),
         h('div', { class: 'sm muted', style: 'margin-top:4px' }, p.items.map(i => i.name + ' ' + fmtN(i.qty) + ' ' + i.unit).join(' · '))));
-      if (!rows.length) rows = [empty('ยังไม่มีการเบิกในเดือนนี้')];
+      if (!rows.length) rows = [empty(isMonth ? 'ยังไม่มีการเบิกในเดือนนี้' : 'ไม่มีการเบิกในช่วงนี้')];
     }
     if (S.sumTab === 'count') {
       rows = [h('p', { class: 'sm muted', style: 'margin:0' }, 'นับแล้ว ' + d.counts.n + ' รายการ' +
@@ -895,20 +928,21 @@ async function showSummary(month, tab) {
           h('div', { style: 'min-width:0' }, h('div', { class: 'nm' }, c.name),
             h('div', { class: 'sm muted' }, 'ระบบ ' + fmtN(c.sys) + ' · นับได้ ' + fmtN(c.counted) + ' · ' + c.by)),
           h('div', { class: 'r' }, h('b', { class: c.diff < 0 ? 'up' : 'down' }, (c.diff > 0 ? '+' : '') + fmtN(c.diff)), h('span', { class: 'sm muted' }, c.unit)))));
-      if (!d.counts.diffs.length) rows.push(empty(d.counts.n ? 'นับตรงกับระบบทุกรายการ 👍' : 'ยังไม่ได้นับในเดือนนี้'));
+      if (!d.counts.diffs.length) rows.push(empty(d.counts.n ? 'นับตรงกับระบบทุกรายการ 👍' : (isMonth ? 'ยังไม่ได้นับในเดือนนี้' : 'ไม่มีการนับในช่วงนี้')));
     }
     body.replaceChildren(...rows);
   };
   render(back(),
     h('h2', { style: 'margin-bottom:6px' }, '📊 สรุปพัสดุ'),
-    monthSel,
+    monthSel, custom,
+    isMonth ? null : h('p', { class: 'sm', style: 'margin:8px 2px 0;color:var(--pink-d)' }, '📅 ' + d.label),
     h('div', { class: 'stats' },
       h('div', { class: 'stat' }, h('b', {}, fmtN(d.totals.times)), h('span', {}, 'ครั้งที่เบิก')),
       h('div', { class: 'stat' }, h('b', {}, fmtN(d.totals.items)), h('span', {}, 'รายการ')),
       h('div', { class: 'stat' }, h('b', {}, fmtN(d.totals.value)), h('span', {}, 'มูลค่า (บาท)'))),
     chips, body,
     h('div', { class: 'stack', style: 'margin-top:16px' }, act('🖨️ ทำรายงานสำหรับพิมพ์', 'btn-main', async () => {
-      const r = await api('summarySheet', { month: d.month });
+      const r = await api('summarySheet', { month: P.month || '', from: P.from || '', to: P.to || '' });
       const open = url => { try { liff.openWindow({ url, external: true }); } catch (_) { window.open(url, '_blank'); } };
       sheet(h('h2', { style: 'margin-top:0' }, '🖨️ รายงานพร้อมแล้ว'),
         h('p', { class: 'sm muted' }, 'สร้างแท็บ "' + r.sheet + '" ใน Google Sheet แล้ว เปิดได้เฉพาะบัญชี Google ที่มีสิทธิ์เข้าไฟล์ระบบสต๊อก'),
