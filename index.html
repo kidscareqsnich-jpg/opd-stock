@@ -323,12 +323,20 @@ function restoreClinic() {
     if (v && v.day === today() && S.clinics.indexOf(v.name) >= 0) S.clinic = v.name;
   } catch (_) {}
 }
+// หน้าตาของแต่ละคลินิก (ชื่อที่ไม่อยู่ในรายการนี้ใช้แบบทั่วไป)
+function clinicLook(c) {
+  c = String(c || '');
+  if (/นอกเวลา/.test(c)) return { e: '🌙', bg: 'var(--sky)', sub: 'หลังเวลาราชการ', after: true };
+  if (/tele/i.test(c)) return { e: '💻', bg: '#efeaff', sub: 'ตรวจทางไกล' };
+  if (/premium|kids/i.test(c)) return { e: '👑', bg: '#fff6df', sub: 'คลินิกพิเศษ' };
+  return { e: '🩺', bg: 'var(--blush)', sub: 'ในเวลาราชการ' };
+}
 function drawChip() {
   const chip = document.getElementById('clinicChip');
   if (!S.me || !S.clinics.length) { chip.hidden = true; return; }
   chip.hidden = false;
-  chip.className = 'clinic-chip' + (/นอกเวลา/.test(S.clinic) ? ' after' : '');
-  chip.replaceChildren(h('span', { class: 'dot' }), S.clinic ? S.clinic.replace('คลินิก', '') : 'เลือกคลินิก', ' ▾');
+  chip.className = 'clinic-chip' + (clinicLook(S.clinic).after ? ' after' : '');
+  chip.replaceChildren(S.clinic ? clinicLook(S.clinic).e + ' ' : h('span', { class: 'dot' }), S.clinic ? S.clinic.replace('คลินิก', '') : 'เลือกคลินิก', ' ▾');
   chip.onclick = () => pickClinic();
 }
 function pickClinic(then) {
@@ -337,13 +345,13 @@ function pickClinic(then) {
       h('h2', { style: 'margin-top:0' }, 'วันนี้เบิกให้คลินิกไหน?'),
       h('p', { class: 'muted sm', style: 'margin-top:-4px' }, 'เลือกครั้งเดียว ระบบจะจำไว้ทั้งวัน กดเปลี่ยนได้ที่มุมขวาบน'),
       S.clinics.map(c => {
-        const after = /นอกเวลา/.test(c);
+        const k = clinicLook(c);
         return h('button', { class: 'opt' + (c === S.clinic ? ' on' : ''), onclick: () => {
           S.clinic = c; store(KEY_CLINIC, JSON.stringify({ name: c, day: today() })); drawChip(); ov.remove();
           toast('เลือก ' + c + ' แล้ว'); resolve(c); if (then) then(c);
         } },
-          h('div', { class: 'oi', style: 'background:' + (after ? 'var(--sky)' : 'var(--blush)') }, after ? '🌙' : '🩺'),
-          h('div', {}, h('b', {}, c), h('span', { class: 'sm muted' }, after ? 'หลังเวลาราชการ' : 'ในเวลาราชการ')));
+          h('div', { class: 'oi', style: 'background:' + k.bg }, k.e),
+          h('div', {}, h('b', {}, c), h('span', { class: 'sm muted' }, k.sub)));
       }));
     if (!S.clinic) ov.dataset.lock = '1';
   });
@@ -794,7 +802,7 @@ function showCart() {
     h('h2', {}, '🧺 ตะกร้าของฉัน'),
     h('p', { class: 'sm muted' }, 'ตรวจว่าหยิบครบ จำนวนถูกต้อง กด ✕ เพื่อลบรายการที่สแกนผิด แล้วกดยืนยัน'),
     S.clinics.length ? h('button', { class: 'opt', onclick: () => pickClinic(() => showCart()) },
-      h('div', { class: 'oi', style: 'background:' + (/นอกเวลา/.test(S.clinic) ? 'var(--sky)' : 'var(--blush)') }, /นอกเวลา/.test(S.clinic) ? '🌙' : '🩺'),
+      h('div', { class: 'oi', style: 'background:' + clinicLook(S.clinic).bg }, clinicLook(S.clinic).e),
       h('div', {}, h('span', { class: 'sm muted' }, 'เบิกให้คลินิก (แตะเพื่อเปลี่ยน)'), h('b', {}, S.clinic || 'ยังไม่ได้เลือก'))) : null,
     list,
     h('button', { class: 'btn btn-soft', style: 'margin-top:12px', onclick: scan }, '📷 สแกนเพิ่ม'),
