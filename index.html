@@ -749,9 +749,15 @@ async function showSummary(month, tab) {
       h('div', { class: 'stat' }, h('b', {}, fmtN(d.totals.items)), h('span', {}, 'รายการ')),
       h('div', { class: 'stat' }, h('b', {}, fmtN(d.totals.value)), h('span', {}, 'มูลค่า (บาท)'))),
     chips, body,
-    h('div', { class: 'stack', style: 'margin-top:16px' }, act('📄 สร้างแท็บสรุปใน Google Sheet', 'btn-soft', async () => {
+    h('div', { class: 'stack', style: 'margin-top:16px' }, act('🖨️ ทำรายงานสำหรับพิมพ์', 'btn-main', async () => {
       const r = await api('summarySheet', { month: d.month });
-      toast('สร้างแท็บ "' + r.sheet + '" แล้ว เปิดดูในคอมได้เลย', false, 4000);
+      const open = url => { try { liff.openWindow({ url, external: true }); } catch (_) { window.open(url, '_blank'); } };
+      sheet(h('h2', { style: 'margin-top:0' }, '🖨️ รายงานพร้อมแล้ว'),
+        h('p', { class: 'sm muted' }, 'สร้างแท็บ "' + r.sheet + '" ใน Google Sheet แล้ว เปิดได้เฉพาะบัญชี Google ที่มีสิทธิ์เข้าไฟล์ระบบสต๊อก'),
+        h('div', { class: 'stack' },
+          h('button', { class: 'btn btn-main', onclick: () => open(r.pdf) }, '📄 เปิดเป็น PDF (A4)'),
+          h('button', { class: 'btn btn-soft', onclick: () => open(r.url) }, '📊 เปิดแท็บใน Google Sheet')),
+        h('p', { class: 'sm muted', style: 'margin-bottom:0' }, 'ส่วนใหญ่สะดวกที่สุดคือเปิดบนคอม แล้วสั่งพิมพ์จาก PDF'));
     })));
   draw();
 }
