@@ -217,6 +217,40 @@ const ICON_SCAN = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" s
 const ICON_SEARCH = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8a94ad" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
 const ICON_OK = '<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#3dbb8a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
 
+// ---------- วันหมดอายุ ----------
+function expDays(i) {
+  if (!i.exp) return null;
+  const [y, m, d] = i.exp.split('-').map(Number);
+  const t = new Date(); t.setHours(0, 0, 0, 0);
+  return Math.round((new Date(y, m - 1, d) - t) / 86400000);
+}
+function expText(i) {
+  const n = expDays(i);
+  const [y, m, d] = i.exp.split('-').map(Number);
+  const date = new Date(y, m - 1, d).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' });
+  return n < 0 ? 'หมดอายุแล้ว (' + date + ')' : n === 0 ? 'หมดอายุวันนี้' : 'หมดอายุ ' + date + ' · อีก ' + n + ' วัน';
+}
+function expiringList() {
+  return S.items.filter(i => i.exp && !(i.qty != null && i.qty <= 0) && expDays(i) <= S.expWarn).sort((a, b) => expDays(a) - expDays(b));
+}
+function expTag(i) {
+  if (!i.exp) return null;
+  const n = expDays(i), bad = n <= S.expWarn;
+  return h('span', { class: 'tag', style: 'background:' + (n < 0 ? 'var(--bad)' : bad ? 'var(--bad-bg)' : 'var(--sky)') + ';color:' + (n < 0 ? '#fff' : bad ? 'var(--bad)' : 'var(--blue-d)') }, '⏰ ' + expText(i));
+}
+function expInput(i) {
+  return h('input', { class: 'field', type: 'date', value: i.exp || '' });
+}
+function showExpiring() {
+  const list = expiringList();
+  render(back(), h('h2', {}, '⏰ ใกล้หมดอายุ'),
+    h('p', { class: 'sm muted' }, 'รายการที่หมดอายุแล้ว หรือจะหมดภายใน ' + S.expWarn + ' วัน หยิบใช้อันนี้ก่อนนะคะ'),
+    h('div', { class: 'list' }, list.length ? list.map(i => h('button', { class: 'item', onclick: () => showItem(i.code) }, emo(i),
+      h('div', { style: 'min-width:0' }, h('div', { class: 'nm' }, i.name), h('div', { style: 'margin-top:4px' }, expTag(i))),
+      h('div', { class: 'q' }, h('b', {}, i.qty == null ? '–' : fmtN(i.qty)), h('span', { class: 'meta' }, i.unit))))
+      : h('p', { class: 'muted', style: 'text-align:center' }, 'ไม่มีของใกล้หมดอายุ 👍')));
+}
+
 function back(fn, label) { return h('button', { class: 'back', onclick: fn || showHome }, '‹ ' + (label || 'กลับ')); }
 function act(label, cls, fn) {
   const b = h('button', { class: 'btn ' + (cls || 'btn-main') }, label);
@@ -255,7 +289,7 @@ async function api(action, data) {
 }
 function applyBase(d) {
   if (!d || !Array.isArray(d.items)) return;
-  S.me = d.me; S.items = d.items; S.pending = d.pending; S.staff = d.staffNames; S.units = d.units || []; S.clinics = d.clinics || [];
+  S.me = d.me; S.items = d.items; S.pending = d.pending; S.staff = d.staffNames; S.units = d.units || []; S.clinics = d.clinics || []; S.expWarn = d.expWarn || 30;
   if (S.me && S.sub) store(KEY_BASE, JSON.stringify({ sub: S.sub, d }));
   if (S.me) {
     const first = S.me.name.split(' ')[0];
@@ -402,6 +436,9 @@ function showHome() {
     h('div', { class: 'tiles' + (tiles.length === 4 ? ' four' : '') }, tiles.map(x => h('button', { class: 'tile', onclick: x.fn },
       x.n ? h('span', { class: 'badge-n' }, x.n) : null,
       h('div', { class: 'ti', style: 'background:' + x.bg }, x.e), x.t))),
+    (() => { const ex = expiringList(); return ex.length ? h('button', { class: 'opt', style: 'border-color:var(--bad-bg);margin:0 0 6px', onclick: showExpiring },
+      h('div', { class: 'oi', style: 'background:var(--bad-bg)' }, '⏰'),
+      h('div', {}, h('b', {}, 'ใกล้หมดอายุ ' + ex.length + ' รายการ'), h('span', { class: 'sm muted' }, 'แตะเพื่อดูว่าควรหยิบอะไรใช้ก่อน'))) : null; })(),
     h('div', { class: 'search', html: ICON_SEARCH }, q), chips, list);
   draw();
   S.view = 'home'; S.redraw = draw;
@@ -465,7 +502,7 @@ function showItem(code) {
       h('div', { class: 'em-big', style: 'background:' + (CAT_BG[i.cat] || '#e8f2ff') }, CAT_EMOJI[i.cat] || '📦'),
       h('h2', { style: 'margin:0 0 4px' }, i.name),
       h('div', { class: 'code' }, i.code + ' · ' + (CAT_SHORT[i.cat] || i.cat)),
-      h('div', { style: 'margin-top:8px' }, tag(i.type)),
+      h('div', { style: 'margin-top:8px;display:flex;gap:6px;justify-content:center;flex-wrap:wrap' }, tag(i.type), expTag(i)),
       h('div', { class: 'stock' }, h('span', { class: 'sm muted' }, 'คงเหลือ'), h('b', {}, i.qty == null ? '–' : fmtN(i.qty)), h('span', { class: 'sm muted' }, i.qty == null ? 'ยังไม่นับ' : i.unit))),
     h('div', { class: 'card' },
       st.el, h('div', { class: 'unit' }, 'จำนวน (' + i.unit + ')'),
@@ -498,12 +535,15 @@ function done(i, qty, title) {
 function showReceive(i) {
   const st = stepper(1);
   const emerg = h('input', { type: 'checkbox' });
+  const exp = h('input', { class: 'field', type: 'date' });
   render(back(() => showItem(i.code)),
     h('div', { class: 'card' }, h('h2', { style: 'margin-top:0' }, '📦 รับของเข้า'), h('p', { class: 'muted' }, i.name),
       st.el, h('div', { class: 'unit' }, 'จำนวนที่รับ (' + i.unit + ')'),
+      h('label', { class: 'lb' }, 'วันหมดอายุของล็อตนี้' + (i.expiry ? '' : ' (ถ้ามี)')), exp,
       h('label', { class: 'check' }, emerg, 'เป็นการเบิกฉุกเฉินจากพัสดุ'),
       h('div', { class: 'stack' }, act('บันทึกรับเข้า', 'btn-main', async () => {
-        const d = await api('receive', { code: i.code, qty: st.input.value, emergency: emerg.checked });
+        if (i.expiry && !exp.value) throw new Error('ของชิ้นนี้มีวันหมดอายุ กรุณาใส่วันหมดอายุ');
+        const d = await api('receive', { code: i.code, qty: st.input.value, emergency: emerg.checked, exp: exp.value });
         applyBase(d); toast('บันทึกรับเข้าแล้ว 📦'); showItem(i.code);
       }))));
 }
@@ -624,19 +664,21 @@ async function showCount() {
   const left = h('input', { type: 'checkbox' });
   const bar = h('i'), txt = h('div', { class: 'sm muted' });
   const list = h('div', { class: 'list' });
-  const save = async (i, value) => {
+  const save = async (i, value, exp) => {
     if (!pSel.value) throw new Error('เลือกผู้นับคนที่ 2 ก่อน');
     if (String(value).trim() === '') throw new Error('กรอกจำนวนที่นับได้');
-    const d = await api('count', { code: i.code, counted: value, partner: pSel.value });
+    const d = await api('count', { code: i.code, counted: value, partner: pSel.value, exp: exp || '' });
     applyBase(d.base); Object.assign(counted, d.counted); toast('บันทึก ' + i.name + ' แล้ว ✓'); draw();
   };
   const row = i => {
     const ok = counted[i.code] !== undefined;
     const inp = h('input', { type: 'number', inputmode: 'decimal', min: '0', step: 'any', value: ok ? String(counted[i.code]) : '' });
+    const ex = i.expiry ? h('input', { type: 'date', value: i.exp || '', title: 'วันหมดอายุที่ใกล้สุดบนชั้น',
+      style: 'margin-top:6px;width:100%;border:1.5px solid var(--line);border-radius:10px;padding:5px 8px;font-size:13px' }) : null;
     return h('div', { class: 'crow' + (ok ? ' done' : '') },
       h('div', { style: 'min-width:0' }, h('div', { style: 'font-size:14px;font-weight:500;line-height:1.3' }, i.name),
-        h('div', { class: 'sm muted' }, 'ในระบบ ' + (i.qty == null ? '–' : fmtN(i.qty)) + ' ' + i.unit)),
-      inp, act(ok ? 'แก้' : 'บันทึก', ok ? 'btn-soft' : 'btn-main', () => save(i, inp.value)));
+        h('div', { class: 'sm muted' }, 'ในระบบ ' + (i.qty == null ? '–' : fmtN(i.qty)) + ' ' + i.unit + (ex ? ' · ⏰ หมดอายุใกล้สุด' : '')), ex),
+      inp, act(ok ? 'แก้' : 'บันทึก', ok ? 'btn-soft' : 'btn-main', () => save(i, inp.value, ex && ex.value)));
   };
   // สแกนป้าย QR แล้วกรอกจำนวน (ใช้คู่กับการเลื่อนหาในรายการได้)
   const scanCount = async () => {
@@ -647,6 +689,7 @@ async function showCount() {
       const i = S.items.find(x => x.code === code);
       if (!i) throw new Error('ไม่พบรหัส ' + code);
       const was = counted[i.code];
+      let ex = null;
       const inp = h('input', { class: 'field', type: 'number', inputmode: 'decimal', min: '0', step: 'any',
         placeholder: 'จำนวนที่นับได้', style: 'font-size:28px;text-align:center;font-weight:600', value: was === undefined ? '' : String(was) });
       const ov = sheet(
@@ -656,9 +699,10 @@ async function showCount() {
           i.code + ' · ในระบบ ' + (i.qty == null ? '–' : fmtN(i.qty)) + ' ' + i.unit +
           (was === undefined ? '' : ' · นับไปแล้ว ' + fmtN(was))),
         inp, h('div', { class: 'unit' }, 'จำนวนที่เห็นจริง (' + i.unit + ')'),
+        ...(i.expiry ? [h('label', { class: 'lb' }, '⏰ วันหมดอายุที่ใกล้สุดบนชั้น'), (ex = expInput(i))] : []),
         h('div', { class: 'stack' },
-          act('บันทึกแล้วสแกนต่อ 📷', 'btn-main', async () => { await save(i, inp.value); ov.remove(); scanCount(); }),
-          act('บันทึก', 'btn-soft', async () => { await save(i, inp.value); ov.remove(); })));
+          act('บันทึกแล้วสแกนต่อ 📷', 'btn-main', async () => { await save(i, inp.value, ex && ex.value); ov.remove(); scanCount(); }),
+          act('บันทึก', 'btn-soft', async () => { await save(i, inp.value, ex && ex.value); ov.remove(); })));
       setTimeout(() => inp.focus(), 250);
     } catch (e) { toast(e.message, true); }
   };
