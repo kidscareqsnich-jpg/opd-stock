@@ -147,6 +147,17 @@
     box-shadow:0 10px 24px rgba(40,50,80,.25); opacity:0; transform:translateY(-16px); transition:.2s; pointer-events:none; }
   #toast.show { opacity:1; transform:none; } #toast.bad { background:var(--bad); }
   .loading { text-align:center; padding:60px 0; color:var(--muted); }
+  .tiles.four { grid-template-columns:repeat(4, 1fr); gap:8px; }
+  .tiles.four .tile { font-size:13px; padding-left:4px; padding-right:4px; }
+  .stats { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin:10px 0 4px; }
+  .stat { background:#fff; border-radius:16px; padding:12px 8px; text-align:center; box-shadow:0 3px 12px rgba(110,140,200,.10); }
+  .stat b { display:block; font-family:"Mali", sans-serif; font-size:20px; color:var(--blue-d); }
+  .stat span { font-size:12px; color:var(--muted); }
+  .srow { background:#fff; border-radius:16px; padding:12px 14px; display:flex; gap:10px; align-items:center; box-shadow:0 3px 12px rgba(110,140,200,.10); }
+  .srow .nm { font-weight:500; font-size:14px; line-height:1.3; }
+  .srow .r { margin-left:auto; text-align:right; flex:none; }
+  .srow .r b { display:block; font-size:16px; }
+  .up { color:var(--bad); } .down { color:var(--ok); }
   .loading .blob { width:54px; height:54px; margin:0 auto 12px; border-radius:50%; background:linear-gradient(135deg, var(--sky2), var(--pink)); animation:pulse 1.2s infinite ease-in-out; }
   @keyframes pulse { 50% { transform:scale(.8); opacity:.6; } }
 </style>
@@ -253,6 +264,7 @@ function applyBase(d) {
   drawChip();
 }
 function codeFromUrl() { return new URLSearchParams(location.search).get('item'); }
+function viewFromUrl() { return new URLSearchParams(location.search).get('view'); }
 
 // ---------- คลินิก (เลือกครั้งเดียวต่อวัน) ----------
 function restoreClinic() {
@@ -326,7 +338,9 @@ async function main() {
 function startApp(d) {
   applyBase(d); restoreClinic(); drawChip();
   const c = codeFromUrl();
-  c ? showItem(c) : showHome();
+  if (c) showItem(c);
+  else if (viewFromUrl() === 'summary' && isKeeper()) return showSummary();
+  else showHome();
   if (!S.clinic && S.clinics.length) pickClinic();
 }
 
@@ -378,13 +392,14 @@ function showHome() {
   const tiles = [
     { t: 'ยืม-คืน', e: '🤝', bg: 'var(--sky)', fn: showLoans },
     isKeeper() ? { t: 'คำขอ', e: '📨', bg: 'var(--blush)', fn: showPending, n: S.pending } : { t: 'ขอของ', e: '🔒', bg: 'var(--blush)', fn: () => { S.cat = 'ทั้งหมด'; q.value = ''; toast('เลือกของที่มีป้าย 🔒 ต้องขอ แล้วกดส่งคำขอ'); } },
-    isKeeper() ? { t: 'นับสต๊อก', e: '📋', bg: '#efeaff', fn: showCount } : { t: 'คลินิก', e: '🏥', bg: '#efeaff', fn: () => pickClinic() }
-  ];
+    isKeeper() ? { t: 'นับสต๊อก', e: '📋', bg: '#efeaff', fn: showCount } : { t: 'คลินิก', e: '🏥', bg: '#efeaff', fn: () => pickClinic() },
+    isKeeper() ? { t: 'สรุป', e: '📊', bg: '#fff6df', fn: () => showSummary() } : null
+  ].filter(Boolean);
   render(
     h('button', { class: 'scan-hero', onclick: scan },
       h('div', { class: 'ico', html: ICON_SCAN }),
       h('div', {}, h('b', {}, 'สแกนเบิกของ'), h('span', {}, 'ส่องกล้องที่ป้าย QR บนชั้นวาง'))),
-    h('div', { class: 'tiles' }, tiles.map(x => h('button', { class: 'tile', onclick: x.fn },
+    h('div', { class: 'tiles' + (tiles.length === 4 ? ' four' : '') }, tiles.map(x => h('button', { class: 'tile', onclick: x.fn },
       x.n ? h('span', { class: 'badge-n' }, x.n) : null,
       h('div', { class: 'ti', style: 'background:' + x.bg }, x.e), x.t))),
     h('div', { class: 'search', html: ICON_SEARCH }, q), chips, list);
@@ -664,6 +679,80 @@ async function showCount() {
       h('div', {}, h('b', {}, 'สแกนป้ายแล้วใส่จำนวน'), h('span', {}, 'หรือเลื่อนหา/ค้นหาในรายการด้านล่างก็ได้'))),
     h('div', { class: 'search', html: ICON_SEARCH }, q),
     h('label', { class: 'check' }, left, 'แสดงเฉพาะที่ยังไม่นับ'), list);
+  draw();
+}
+
+// ---------- สรุปรายเดือน ----------
+async function showSummary(month, tab) {
+  loading('กำลังสรุปข้อมูล...');
+  let d;
+  try { d = await api('summary', { month: month || '' }); } catch (e) { toast(e.message, true); return showHome(); }
+  S.sumTab = tab || S.sumTab || 'use';
+  const shortC = c => c.replace('คลินิก', '');
+  const monthSel = h('select', { class: 'field' }, (d.months.length ? d.months : [{ key: d.month, label: d.label }])
+    .map(m => h('option', { value: m.key, selected: m.key === d.month }, m.label)));
+  monthSel.addEventListener('change', () => showSummary(monthSel.value));
+  const body = h('div', { class: 'list' });
+  const empty = t => h('p', { class: 'muted', style: 'text-align:center' }, t);
+  const tabs = [['use', '📦 ยอดใช้'], ['restock', '🛒 ควรเบิก'], ['people', '🙋 ใครเบิก'], ['count', '📋 ผลนับ']];
+  const chips = h('div', { class: 'chips' });
+  const draw = () => {
+    chips.replaceChildren(...tabs.map(([k, t]) => h('button', { class: 'chip' + (S.sumTab === k ? ' on' : ''), style: 'padding:7px 11px', onclick: () => { S.sumTab = k; draw(); } }, t)));
+    let rows = [];
+    if (S.sumTab === 'use') {
+      rows = d.usage.map(u => {
+        const by = d.clinics.filter(c => u.clinics[c]).map(c => shortC(c) + ' ' + fmtN(u.clinics[c]));
+        if (u.clinics['ไม่ระบุคลินิก']) by.push('ไม่ระบุ ' + fmtN(u.clinics['ไม่ระบุคลินิก']));
+        const diff = u.qty - u.prev;
+        return h('div', { class: 'srow' },
+          h('div', { style: 'min-width:0' }, h('div', { class: 'nm' }, u.name), h('div', { class: 'sm muted' }, by.join(' · ') || '-')),
+          h('div', { class: 'r' }, h('b', {}, fmtN(u.qty) + ' ' + u.unit),
+            h('span', { class: 'sm ' + (diff > 0 ? 'up' : diff < 0 ? 'down' : 'muted') },
+              'เดือนก่อน ' + fmtN(u.prev) + (diff > 0 ? ' ▲' : diff < 0 ? ' ▼' : ''))));
+      });
+      if (!rows.length) rows = [empty('ยังไม่มีการเบิกในเดือนนี้')];
+    }
+    if (S.sumTab === 'restock') {
+      const need = d.restock.filter(r => r.suggest > 0), zero = d.restock.filter(r => r.suggest <= 0);
+      rows = [h('p', { class: 'sm muted', style: 'margin:0' }, 'คิดจากยอดใช้เฉลี่ย ' + Math.max(1, d.avgMonths) + ' เดือน + สำรอง ' + Math.round(d.buffer * 100) + '% เทียบกับคงเหลือตอนนี้')]
+        .concat(need.map(r => h('div', { class: 'srow' },
+          h('div', { style: 'min-width:0' }, h('div', { class: 'nm' }, r.name),
+            h('div', { class: 'sm muted' }, 'เหลือ ' + (r.qty == null ? '–' : fmtN(r.qty)) + ' · ใช้เฉลี่ย ' + fmtN(r.avg) + '/เดือน')),
+          h('div', { class: 'r' }, h('b', { style: 'color:var(--pink-d)' }, 'เบิก ' + fmtN(r.suggest)), h('span', { class: 'sm muted' }, r.unit)))));
+      if (!need.length) rows.push(empty('ยังไม่มีรายการที่ต้องเบิกเพิ่ม 🎉'));
+      if (zero.length) rows.push(h('details', { class: 'card', style: 'margin:6px 0 0' },
+        h('summary', { class: 'sm' }, 'คงเหลือ 0 แต่ยังไม่มียอดใช้ (' + zero.length + ' รายการ)'),
+        h('p', { class: 'sm muted', style: 'margin-bottom:0' }, zero.map(r => r.name).join(', '))));
+    }
+    if (S.sumTab === 'people') {
+      rows = d.people.map(p => h('div', { class: 'card', style: 'padding:14px 16px;margin:0' },
+        h('div', { style: 'display:flex;justify-content:space-between' }, h('b', {}, p.name), h('span', { class: 'sm muted' }, p.times + ' ครั้ง')),
+        h('div', { class: 'sm muted', style: 'margin-top:4px' }, p.items.map(i => i.name + ' ' + fmtN(i.qty) + ' ' + i.unit).join(' · '))));
+      if (!rows.length) rows = [empty('ยังไม่มีการเบิกในเดือนนี้')];
+    }
+    if (S.sumTab === 'count') {
+      rows = [h('p', { class: 'sm muted', style: 'margin:0' }, 'นับแล้ว ' + d.counts.n + ' รายการ' +
+        (d.counts.lossValue ? ' · ของขาดมูลค่าประมาณ ' + fmtN(Math.abs(d.counts.lossValue)) + ' บาท' : ''))]
+        .concat(d.counts.diffs.map(c => h('div', { class: 'srow' },
+          h('div', { style: 'min-width:0' }, h('div', { class: 'nm' }, c.name),
+            h('div', { class: 'sm muted' }, 'ระบบ ' + fmtN(c.sys) + ' · นับได้ ' + fmtN(c.counted) + ' · ' + c.by)),
+          h('div', { class: 'r' }, h('b', { class: c.diff < 0 ? 'up' : 'down' }, (c.diff > 0 ? '+' : '') + fmtN(c.diff)), h('span', { class: 'sm muted' }, c.unit)))));
+      if (!d.counts.diffs.length) rows.push(empty(d.counts.n ? 'นับตรงกับระบบทุกรายการ 👍' : 'ยังไม่ได้นับในเดือนนี้'));
+    }
+    body.replaceChildren(...rows);
+  };
+  render(back(),
+    h('h2', { style: 'margin-bottom:6px' }, '📊 สรุปพัสดุ'),
+    monthSel,
+    h('div', { class: 'stats' },
+      h('div', { class: 'stat' }, h('b', {}, fmtN(d.totals.times)), h('span', {}, 'ครั้งที่เบิก')),
+      h('div', { class: 'stat' }, h('b', {}, fmtN(d.totals.items)), h('span', {}, 'รายการ')),
+      h('div', { class: 'stat' }, h('b', {}, fmtN(d.totals.value)), h('span', {}, 'มูลค่า (บาท)'))),
+    chips, body,
+    h('div', { class: 'stack', style: 'margin-top:16px' }, act('📄 สร้างแท็บสรุปใน Google Sheet', 'btn-soft', async () => {
+      const r = await api('summarySheet', { month: d.month });
+      toast('สร้างแท็บ "' + r.sheet + '" แล้ว เปิดดูในคอมได้เลย', false, 4000);
+    })));
   draw();
 }
 
