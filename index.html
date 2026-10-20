@@ -184,7 +184,7 @@ function h(tag, props, ...kids) {
   kids.flat().forEach(c => { if (c != null && c !== false) el.append(c.nodeType ? c : document.createTextNode(String(c))); });
   return el;
 }
-function render(...nodes) { S.view = ''; $app.replaceChildren(...nodes.filter(Boolean)); window.scrollTo(0, 0); }
+function render(...nodes) { S.view = ''; $app.replaceChildren(...nodes.flat(Infinity).filter(Boolean)); window.scrollTo(0, 0); }
 function loading(msg) { render(h('div', { class: 'loading' }, h('div', { class: 'blob' }), msg || 'กำลังโหลด...')); }
 function toast(msg, bad, ms) {
   const t = document.getElementById('toast');
@@ -494,17 +494,41 @@ function showReceive(i) {
 }
 
 // ---------- ยืม-คืน ----------
-function showLoanOut(i) {
+function canLend(i) { return i.type === 'หยิบได้เลย' || (i.type === 'ต้องขอ' && isKeeper()); }
+// เลือกของที่จะให้ยืม: สแกนป้าย หรือเลือกจากรายการ
+function pickLoanOut() {
+  const list = S.items.filter(canLend);
+  const sel = h('select', { class: 'field' }, h('option', { value: '' }, '— เลือกของที่จะให้ยืม —'), list.map(i => h('option', { value: i.code }, i.name)));
+  const ov = sheet(
+    h('h2', { style: 'margin-top:0' }, '📤 ให้หน่วยงานอื่นยืม'),
+    h('button', { class: 'btn btn-main', onclick: async () => {
+      try {
+        const code = await scanCode(); if (!code) return;
+        const i = S.items.find(x => x.code === code);
+        if (!i) throw new Error('ไม่พบรหัส ' + code);
+        if (!canLend(i)) throw new Error('ของชิ้นนี้ต้องให้ผู้ดูแลพัสดุเป็นคนให้ยืม');
+        ov.remove(); showLoanOut(i, true);
+      } catch (e) { toast(e.message, true); }
+    } }, '📷 สแกนป้ายของที่จะให้ยืม'),
+    h('p', { class: 'sm muted', style: 'text-align:center;margin:12px 0 6px' }, 'หรือเลือกจากรายการ'),
+    sel,
+    h('div', { class: 'stack' }, h('button', { class: 'btn btn-soft', onclick: () => {
+      const i = S.items.find(x => x.code === sel.value);
+      if (!i) return toast('เลือกของก่อน', true);
+      ov.remove(); showLoanOut(i, true);
+    } }, 'ถัดไป')));
+}
+function showLoanOut(i, fromLoans) {
   const st = stepper(1);
   const unit = unitInput('หน่วยงานที่มายืม');
   const person = h('input', { class: 'field', type: 'text', placeholder: 'ชื่อคนมารับ' });
-  render(back(() => showItem(i.code)),
+  render(back(fromLoans ? showLoans : () => showItem(i.code)),
     h('div', { class: 'card' }, h('h2', { style: 'margin-top:0' }, '🤝 ให้หน่วยงานอื่นยืม'), h('p', { class: 'muted' }, i.name),
       st.el, h('div', { class: 'unit' }, 'จำนวน (' + i.unit + ')'),
       h('label', { class: 'lb' }, 'หน่วยงาน'), unit.el, h('label', { class: 'lb' }, 'ผู้มารับ'), person,
       h('div', { class: 'stack' }, act('บันทึกให้ยืม', 'btn-main', async () => {
         const d = await api('loanOut', { code: i.code, qty: st.input.value, unit: unit.input.value, person: person.value });
-        applyBase(d); toast('บันทึกแล้ว ระบบจะเตือนถ้าค้างนาน'); showItem(i.code);
+        applyBase(d); toast('บันทึกแล้ว ระบบจะเตือนถ้าค้างนาน'); fromLoans ? showLoans() : showItem(i.code);
       }))));
 }
 function showLoanIn() {
@@ -537,8 +561,12 @@ async function showLoans() {
       })));
     const out = d.list.filter(l => l.dir === 'ให้ยืมออก'), inn = d.list.filter(l => l.dir !== 'ให้ยืมออก');
     render(back(), h('h2', {}, '🤝 ยืม-คืน'),
-      h('button', { class: 'btn btn-main', onclick: showLoanIn }, '+ ยืมของจากหน่วยงานอื่น'),
-      h('p', { class: 'sm muted' }, 'ถ้าจะให้หน่วยงานอื่นยืม เปิดหน้าของชิ้นนั้นแล้วกด "ให้ยืม"'),
+      h('button', { class: 'opt', onclick: pickLoanOut },
+        h('div', { class: 'oi', style: 'background:var(--blush)' }, '📤'),
+        h('div', {}, h('b', {}, 'ให้หน่วยงานอื่นยืม'), h('span', { class: 'sm muted' }, 'หน่วยงานอื่นมายืมของเรา'))),
+      h('button', { class: 'opt', onclick: showLoanIn },
+        h('div', { class: 'oi', style: 'background:var(--sky)' }, '📥'),
+        h('div', {}, h('b', {}, 'เรายืมของจากหน่วยงานอื่น'), h('span', { class: 'sm muted' }, 'เราไปยืมของเขามาใช้'))),
       h('h3', {}, 'ของเราที่ให้ยืมไป (' + out.length + ')'), out.length ? out.map(card) : h('p', { class: 'muted sm' }, 'ไม่มีรายการค้าง'),
       h('h3', {}, 'ของที่เรายืมมา (' + inn.length + ')'), inn.length ? inn.map(card) : h('p', { class: 'muted sm' }, 'ไม่มีรายการค้าง'));
   } catch (e) { toast(e.message, true); showHome(); }
