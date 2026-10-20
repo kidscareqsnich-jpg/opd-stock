@@ -351,7 +351,7 @@ function pickClinic(then) {
           toast('เลือก ' + c + ' แล้ว'); resolve(c); if (then) then(c);
         } },
           h('div', { class: 'oi', style: 'background:' + k.bg }, k.e),
-          h('div', {}, h('b', {}, c), h('span', { class: 'sm muted' }, k.sub)));
+          h('div', {}, h('b', {}, c)));
       }));
     if (!S.clinic) ov.dataset.lock = '1';
   });
