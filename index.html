@@ -7,8 +7,10 @@
 <title>พัสดุ OPD</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Mali:wght@500;600;700&family=Prompt:wght@400;500;600&display=swap" rel="stylesheet">
-<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Mali:wght@500;600;700&family=Prompt:wght@400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<link rel="preconnect" href="https://script.google.com">
+<link rel="preconnect" href="https://script.googleusercontent.com">
+<script charset="utf-8" id="liffsdk" src="https://static.line-scdn.net/liff/edge/2/sdk.js" async></script>
 <style>
   :root {
     --sky:#e8f2ff; --sky2:#cfe3ff; --blue:#6ea8f0; --blue-d:#3f7fd6;
@@ -211,7 +213,7 @@ function h(tag, props, ...kids) {
   kids.flat().forEach(c => { if (c != null && c !== false) el.append(c.nodeType ? c : document.createTextNode(String(c))); });
   return el;
 }
-function render(...nodes) { S.view = ''; $app.replaceChildren(...nodes.flat(Infinity).filter(Boolean)); window.scrollTo(0, 0); drawCartBar(); }
+function render(...nodes) { S.nav = (S.nav || 0) + 1; S.view = ''; $app.replaceChildren(...nodes.flat(Infinity).filter(Boolean)); window.scrollTo(0, 0); drawCartBar(); }
 function loading(msg) { render(h('div', { class: 'loading' }, h('div', { class: 'blob' }), msg || 'กำลังโหลด...')); }
 function toast(msg, bad, ms) {
   const t = document.getElementById('toast');
@@ -303,6 +305,29 @@ async function api(action, data) {
   if (!j.ok) throw new Error(j.error);
   return j.data;
 }
+// แสดงข้อมูลครั้งก่อนทันที แล้วค่อยแทนด้วยข้อมูลล่าสุดเมื่อโหลดเสร็จ
+async function swr(action, data, draw, msg) {
+  const key = 'opd-c:' + (S.sub || '') + ':' + action + ':' + JSON.stringify(data || {});
+  let cached = null;
+  try { cached = JSON.parse(load(key) || 'null'); } catch (_) {}
+  if (cached) draw(cached, true); else loading(msg);
+  const token = S.nav;
+  try {
+    const d = await api(action, data);
+    try { localStorage.setItem(key, JSON.stringify(d)); } catch (_) {}
+    if (d && d.base) applyBase(d.base);
+    if (S.nav !== token) return;                                   // ผู้ใช้ไปหน้าอื่นแล้ว
+    if (cached && JSON.stringify(cached) === JSON.stringify(d)) return;
+    const a = document.activeElement;
+    if (cached && (document.querySelector('.overlay') || (a && $app.contains(a) && /INPUT|SELECT|TEXTAREA/.test(a.tagName)))) return; // กำลังพิมพ์อยู่ ไม่ขัดจังหวะ
+    const y = window.scrollY;
+    draw(d, false);
+    if (cached) window.scrollTo(0, y);
+  } catch (e) {
+    toast(cached ? 'ใช้ข้อมูลล่าสุดที่มี: ' + e.message : e.message, true);
+    if (!cached) showHome();
+  }
+}
 function applyBase(d) {
   if (!d || !Array.isArray(d.items)) return;
   S.me = d.me; S.items = d.items; S.pending = d.pending; S.staff = d.staffNames; S.units = d.units || []; S.clinics = d.clinics || []; S.expWarn = d.expWarn || 30;
@@ -362,18 +387,31 @@ async function needClinic() {
 }
 
 // ---------- เริ่มต้น ----------
+function liffReady() {
+  if (window.liff) return Promise.resolve();
+  return new Promise((ok, bad) => {
+    const el = document.getElementById('liffsdk');
+    el.addEventListener('load', () => ok());
+    el.addEventListener('error', () => bad(new Error('โหลด LINE ไม่สำเร็จ ตรวจสอบอินเทอร์เน็ต')));
+    setTimeout(() => window.liff ? ok() : null, 50);
+  });
+}
 async function main() {
+  // เปิดเร็ว: วาดหน้าจากข้อมูลครั้งก่อนทันที ไม่ต้องรอ LINE และเซิร์ฟเวอร์
+  let early = null;
+  try { const c = JSON.parse(load(KEY_BASE) || 'null'); if (c && c.sub && c.d && c.d.me) early = c; } catch (_) {}
+  if (early) { S.sub = early.sub; startApp(early.d); }
   try {
+    await liffReady();
     await liff.init({ liffId: CONFIG.LIFF_ID });
     if (!liff.isLoggedIn()) { liff.login({ redirectUri: location.href }); return; }
     S.idToken = liff.getIDToken();
     try { S.sub = (liff.getDecodedIDToken() || {}).sub || ''; } catch (_) {}
     const fresh = api('init');
-    // เปิดเร็ว: ใช้ข้อมูลครั้งก่อนแสดงทันที แล้วค่อยอัปเดตตัวเลขล่าสุดตามมา
     let cached = null;
-    try { const c = JSON.parse(load(KEY_BASE) || 'null'); if (c && S.sub && c.sub === S.sub && c.d && c.d.me) cached = c.d; } catch (_) {}
+    if (early && early.sub === S.sub) cached = early.d;
+    else if (early) { S.cart = null; early = null; } // คนละบัญชีกับครั้งก่อน
     if (cached) {
-      startApp(cached);
       fresh.then(d => {
         if (!d.me) { store(KEY_BASE, null); return showRegister(d); }
         applyBase(d);
@@ -385,6 +423,7 @@ async function main() {
     if (!d.me) return showRegister(d);
     startApp(d);
   } catch (e) {
+    if (early) { toast('เชื่อมต่อไม่สำเร็จ: ' + e.message, true, 5000); return; }
     render(h('div', { class: 'card', style: 'text-align:center' },
       h('div', { style: 'font-size:42px' }, '😿'),
       h('h2', {}, 'เปิดระบบไม่สำเร็จ'),
@@ -602,10 +641,9 @@ function showLoanIn() {
         applyBase(d); toast('บันทึกการยืมแล้ว'); showLoans();
       }))));
 }
-async function showLoans() {
-  loading();
-  try {
-    const d = await api('loans'); applyBase(d.base);
+function showLoans() { return swr('loans', {}, drawLoans); }
+function drawLoans(d) {
+  {
     const card = l => h('div', { class: 'card', style: 'padding:14px 16px' },
       h('div', { style: 'display:flex;justify-content:space-between;gap:8px' },
         h('div', {}, h('div', { style: 'font-weight:500' }, l.name + ' × ' + fmtN(l.qty)),
@@ -624,7 +662,7 @@ async function showLoans() {
         h('div', {}, h('b', {}, 'เรายืมของจากหน่วยงานอื่น'), h('span', { class: 'sm muted' }, 'เราไปยืมของเขามาใช้'))),
       h('h3', {}, 'ของเราที่ให้ยืมไป (' + out.length + ')'), out.length ? out.map(card) : h('p', { class: 'muted sm' }, 'ไม่มีรายการค้าง'),
       h('h3', {}, 'ของที่เรายืมมา (' + inn.length + ')'), inn.length ? inn.map(card) : h('p', { class: 'muted sm' }, 'ไม่มีรายการค้าง'));
-  } catch (e) { toast(e.message, true); showHome(); }
+  }
 }
 
 // ---------- คำขอรออนุมัติ ----------
@@ -645,16 +683,11 @@ function drawPending(list) {
   };
   render(back(), h('h2', {}, '📨 คำขอรออนุมัติ'), list.length ? list.map(card) : h('div', { class: 'card', style: 'text-align:center' }, h('div', { style: 'font-size:40px' }, '🌷'), h('p', { class: 'muted' }, 'ไม่มีคำขอค้าง')));
 }
-async function showPending() {
-  loading();
-  try { const d = await api('pending'); applyBase(d.base); drawPending(d.list); } catch (e) { toast(e.message, true); showHome(); }
-}
+function showPending() { return swr('pending', {}, d => drawPending(d.list)); }
 
 // ---------- นับสต๊อก ----------
-async function showCount() {
-  loading();
-  let data;
-  try { data = await api('countList'); applyBase(data.base); } catch (e) { toast(e.message, true); return showHome(); }
+function showCount() { return swr('countList', {}, drawCount); }
+function drawCount(data) {
   const counted = data.counted;
   let partner = '';
   try { partner = sessionStorage.getItem(KEY_PARTNER) || ''; } catch (_) {}
@@ -779,23 +812,46 @@ function showCart() {
     if (!c.length) list.append(h('p', { class: 'muted', style: 'text-align:center' }, 'ตะกร้ายังว่างอยู่ 🧺'));
     go.disabled = !c.length;
   };
+  // แสดงผลทันที แล้วบันทึกเบื้องหลัง ถ้าไม่สำเร็จจะคืนของเข้าตะกร้าและแจ้งเตือน
   const go = act('', 'btn-main', async () => {
     const clinic = await needClinic();
     if (S.clinics.length && !clinic) return;
     if (!c.length) throw new Error('ตะกร้ายังว่างอยู่');
-    const d = await api('checkout', { lines: c.map(l => ({ code: l.code, qty: l.qty })), clinic, note: note.value });
-    applyBase(d);
-    const names = c.length;
+    const lines = c.map(l => ({ code: l.code, qty: Number(l.qty) }));
+    const backup = lines.map(l => Object.assign({}, l));
+    const before = {};
+    let nDo = 0, nReq = 0;
+    lines.forEach(l => {
+      const i = S.items.find(x => x.code === l.code);
+      if (!i) return;
+      if (i.type === 'ต้องขอ' && !isKeeper()) { nReq++; return; }
+      nDo++;
+      if (i.qty != null) { before[i.code] = i.qty; i.qty = Math.round((i.qty - l.qty) * 100) / 100; }
+    });
     S.cart = []; saveCart();
+    const line = h('p', { class: 'sm muted', style: 'margin:6px 0 0' }, '⏳ กำลังบันทึกในระบบ...');
     const ov = sheet(h('div', { class: 'success' },
       h('div', { class: 'big-ok', html: ICON_OK }),
-      h('h2', { style: 'margin:0' }, 'บันทึกเรียบร้อย ✨'),
-      h('p', { class: 'muted', style: 'margin:6px 0 0' }, [d.done ? 'เบิก ' + d.done + ' รายการ' : '', d.requested ? 'ส่งคำขอ ' + d.requested + ' รายการ' : ''].filter(Boolean).join(' · ') || names + ' รายการ'),
+      h('h2', { style: 'margin:0' }, 'เบิกเรียบร้อย ✨'),
+      h('p', { class: 'muted', style: 'margin:6px 0 0' }, [nDo ? 'เบิก ' + nDo + ' รายการ' : '', nReq ? 'ส่งคำขอ ' + nReq + ' รายการ' : ''].filter(Boolean).join(' · ')),
       S.clinic ? h('p', { class: 'sm', style: 'margin:4px 0 0;color:var(--pink-d)' }, S.clinic) : null,
+      line,
       h('div', { class: 'stack' },
         h('button', { class: 'btn btn-main', onclick: () => { ov.remove(); scan(); } }, '📷 เริ่มสแกนรอบใหม่'),
         h('button', { class: 'btn btn-soft', onclick: () => { ov.remove(); showHome(); } }, 'กลับหน้าแรก'))));
     ov.dataset.lock = '1';
+    try {
+      const d = await api('checkout', { lines, clinic, note: note.value });
+      applyBase(d);
+      line.textContent = '✓ บันทึกในระบบแล้ว'; line.style.color = '#3dbb8a';
+      if (S.view === 'home' && S.redraw) S.redraw();
+    } catch (e) {
+      Object.keys(before).forEach(k => { const i = S.items.find(x => x.code === k); if (i) i.qty = before[k]; });
+      S.cart = backup.concat(cart()); saveCart();
+      if (ov.isConnected) ov.remove();
+      showCart();
+      toast('⚠️ บันทึกไม่สำเร็จ: ' + e.message + ' ของยังอยู่ในตะกร้า กดยืนยันอีกครั้ง', true, 7000);
+    }
   });
   go.replaceChildren('✅ ยืนยันเบิก ', total, ' รายการ');
   render(back(),
@@ -813,10 +869,8 @@ function showCart() {
 }
 
 // ---------- ประวัติของฉัน ----------
-async function showHistory() {
-  loading('กำลังโหลดประวัติ...');
-  let d;
-  try { d = await api('history'); } catch (e) { toast(e.message, true); return showHome(); }
+function showHistory() { return swr('history', {}, drawHistory, 'กำลังโหลดประวัติ...'); }
+function drawHistory(d) {
   const KIND = { 'เบิกใช้': '📦 เบิก', 'จ่ายตามคำขอ': '🔓 จ่ายจากตู้ต้องขอ', 'ใช้จากรถฉุกเฉิน': '🚑 ใช้จากรถฉุกเฉิน', 'เบิกฉุกเฉิน': '🚨 รับเข้า (ฉุกเฉิน)',
     'รับเข้าจากพัสดุ': '📥 รับเข้า', 'ให้ยืมออก': '📤 ให้ยืม', 'รับคืนจากหน่วยงานที่ยืม': '↩️ ได้ของคืน', 'ยืมเข้า': '📥 ยืมเข้า',
     'คืนให้หน่วยงานที่ให้ยืม': '↪️ คืนของ', 'ปรับยอดจากการนับ': '📋 ปรับยอดจากการนับ', 'ส่งคำขอ': '🔒 ส่งคำขอ' };
@@ -845,10 +899,10 @@ async function showHistory() {
 async function showSummary(p, tab) {
   if (typeof p === 'string') p = { month: p };
   p = p || {};
-  loading('กำลังสรุปข้อมูล...');
-  let d;
-  try { d = await api('summary', { month: p.month || '', from: p.from || '', to: p.to || '' }); } catch (e) { toast(e.message, true); return showHome(); }
   S.sumTab = tab || S.sumTab || 'use';
+  return swr('summary', { month: p.month || '', from: p.from || '', to: p.to || '' }, drawSummary, 'กำลังสรุปข้อมูล...');
+}
+function drawSummary(d) {
   const shortC = c => c.replace('คลินิก', '');
   const isMonth = d.mode === 'month';
   // ตัวเลือกช่วงเวลา
